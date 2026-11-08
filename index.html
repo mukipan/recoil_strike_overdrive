@@ -1,0 +1,4034 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>リコイル・ストライク OVERDRIVE Ver.10.0 - TRINITY & BOSS RUSH</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Inter:wght@400;600;800;900&display=swap');
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden;
+      background-color: #020617; color: #f8fafc;
+      font-family: 'Inter', sans-serif;
+    }
+    .font-cyber { font-family: 'Orbitron', sans-serif; }
+    #gameCanvas { display: block; width: 100%; height: 100%; touch-action: none; background: #020617; }
+    .tab-active {
+      background: linear-gradient(135deg, rgba(6,182,212,0.35), rgba(59,130,246,0.25));
+      border-color: #22d3ee !important; color: #fff !important;
+      box-shadow: 0 0 12px rgba(34,211,238,0.35);
+    }
+    @keyframes pulseGlow {
+      0%, 100% { filter: drop-shadow(0 0 6px rgba(250,204,21,0.8)); transform: scale(1); }
+      50% { filter: drop-shadow(0 0 14px rgba(244,114,182,1)); transform: scale(1.02); }
+    }
+    .overdrive-ready { animation: pulseGlow 1.1s infinite ease-in-out; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #090d16; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 select-none overflow-hidden">
+
+  <!-- トースト通知 -->
+  <div id="toastBanner" style="z-index: 95;" class="hidden fixed top-2 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-slate-900/95 border border-cyan-400 text-cyan-200 text-xs font-bold shadow-2xl pointer-events-none transition-all">
+    💾 SAVED
+  </div>
+
+  <!-- メイン画面ラッパー（上下分離スリムHUD＋中央キャンバス） -->
+  <div class="fixed inset-0 flex flex-col w-full h-full overflow-hidden">
+
+    <!-- ① 上部スリムHUD（プレイ中のみ表示） -->
+    <header id="hudHeader" class="hidden shrink-0 w-full bg-slate-950/95 border-b border-cyan-500/40 px-2 py-1.5 z-20">
+      <div class="max-w-5xl mx-auto flex flex-col gap-1">
+        <!-- 1段目：WAVE・スコア・HP/HEAT/SPバー・操作ボタン -->
+        <div class="flex items-center justify-between gap-1.5 flex-wrap">
+          <div class="flex items-center gap-1.5">
+            <span id="hudDiffBadge" class="px-1.5 py-0.5 rounded bg-cyan-950 border border-cyan-500/60 text-cyan-300 font-cyber font-bold text-[10px]">NORMAL</span>
+            <span class="font-cyber font-black text-xs sm:text-sm text-white">WAVE <span id="hudWaveNum" class="text-cyan-400">1</span></span>
+            <span id="hudWaveProgress" class="font-mono text-[10px] text-slate-400">(0/10)</span>
+            <span class="font-mono text-[11px] text-amber-300 ml-1">SCORE: <b id="hudScoreNum">0</b></span>
+            <span class="font-mono text-[11px] text-yellow-400">🪙<b id="hudCoinNum">0</b></span>
+            <span class="font-mono text-[11px] text-fuchsia-300">💎<b id="hudGemNum">0</b></span>
+          </div>
+
+          <!-- HP / HEAT / SP ゲージ -->
+          <div class="flex items-center gap-2 flex-1 min-w-[200px] max-w-md">
+            <div class="flex-1">
+              <div class="flex justify-between text-[9px] font-bold">
+                <span class="text-emerald-300">HP <b id="hudHpText">130/130</b></span>
+                <span id="hudShieldText" class="text-cyan-300"></span>
+              </div>
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div id="topHpBar" class="h-full bg-gradient-to-r from-emerald-500 to-green-400 transition-all duration-150" style="width:100%"></div>
+              </div>
+            </div>
+            <div class="w-20 sm:w-24">
+              <div class="flex justify-between text-[9px] font-bold">
+                <span id="hudHeatLabel" class="text-orange-300">HEAT</span>
+                <span id="hudHeatText" class="text-orange-200">0%</span>
+              </div>
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div id="topHeatBar" class="h-full bg-gradient-to-r from-amber-400 to-rose-500 transition-all duration-75" style="width:0%"></div>
+              </div>
+            </div>
+            <div class="w-14 sm:w-16">
+              <div class="flex justify-between text-[9px] font-bold text-fuchsia-300"><span>SP</span></div>
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div id="topSpBar" class="h-full bg-gradient-to-r from-fuchsia-500 to-amber-300 transition-all duration-150" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右側ボタン群 -->
+          <div class="flex items-center gap-1">
+            <button id="toggleStatsDetailBtn" type="button" class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-[10px] text-cyan-300 font-bold">📊詳細▼</button>
+            <button id="hudBgmBtn" type="button" class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-[10px]">🎵</button>
+            <button id="hudSeBtn" type="button" class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 text-[10px]">🔊</button>
+            <button id="hudSaveBtn" type="button" class="px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-500/60 text-emerald-300 text-[10px] font-bold">💾保存</button>
+            <button id="hudQuitBtn" type="button" class="px-1.5 py-0.5 rounded bg-rose-950 border border-rose-500/60 text-rose-300 text-[10px] font-bold">🏠基地</button>
+          </div>
+        </div>
+
+        <!-- 2段目：リアルタイム総合ステータス1行バー -->
+        <div class="flex items-center justify-between gap-2 text-[10px] bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800 overflow-x-auto whitespace-nowrap">
+          <div id="hudCompactStatsLine" class="flex items-center gap-2 text-slate-200 font-mono">
+            <span>⚔️ATK:<b class="text-cyan-300">20</b></span>
+            <span>🔫<b class="text-cyan-300">3WAY</b></span>
+            <span>💥体当:<b class="text-pink-300">45</b></span>
+            <span>🛡️軽減:<b class="text-emerald-300">0%</b></span>
+            <span>🗡️貫通:<b class="text-amber-300">0</b></span>
+            <span>🃏強化:<b class="text-purple-300">0枚</b></span>
+          </div>
+          <span id="hudShipSkillTag" class="text-[10px] text-amber-300 font-bold shrink-0">★蒼翼の導き</span>
+        </div>
+
+        <!-- 折りたたみ詳細ドロワー -->
+        <div id="hudStatsDrawer" class="hidden flex-wrap gap-1.5 bg-slate-900/95 p-1.5 rounded border border-cyan-500/30 text-[10px]"></div>
+
+        <!-- ボスHPバー＆ギミック状態表示 -->
+        <div id="hudBossBarWrap" class="hidden flex-col bg-rose-950/80 border border-rose-500/60 rounded px-2 py-1">
+          <div class="flex justify-between items-center text-[10px] font-bold">
+            <div class="flex items-center gap-2">
+              <span id="hudBossName" class="text-rose-200 font-cyber">👑 BOSS</span>
+              <span id="hudBossGimmickTag" class="px-1.5 py-0.2 rounded bg-amber-500/30 border border-amber-400 text-amber-200 text-[9px]"></span>
+            </div>
+            <span id="hudBossHpText" class="text-rose-300 font-mono">1000/1000</span>
+          </div>
+          <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden mt-0.5">
+            <div id="hudBossHpBar" class="h-full bg-gradient-to-r from-rose-600 via-red-500 to-amber-400 transition-all duration-100" style="width:100%"></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ② 中央プレイフィールド -->
+    <div id="canvasWrap" class="relative flex-1 w-full overflow-hidden">
+      <canvas id="gameCanvas"></canvas>
+      <div id="warningBanner" class="hidden pointer-events-none absolute inset-x-4 top-1/3 -translate-y-1/2 bg-rose-950/95 border-y-2 border-rose-400 py-2.5 px-4 text-center rounded-xl shadow-2xl z-20">
+        <div id="warningTitle" class="text-rose-400 font-cyber font-black text-base sm:text-xl">⚠️ WARNING!! BOSS APPROACHING ⚠️</div>
+        <div id="warningSub" class="text-rose-200 text-xs font-bold mt-0.5">高エネルギー反応を検知！</div>
+      </div>
+    </div>
+
+    <!-- ③ 下部スリムコントロールバー（スマホ親指対応） -->
+    <footer id="bottomBar" class="hidden shrink-0 w-full bg-slate-950/95 border-t border-cyan-500/40 px-2 py-2 z-20" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom));">
+      <div class="max-w-5xl mx-auto flex items-center gap-2">
+        <button id="hudAimModeBtn" type="button" class="shrink-0 px-2.5 py-2.5 rounded-xl bg-slate-900 border border-cyan-500/60 text-[11px] sm:text-xs font-bold text-cyan-300 active:scale-95">
+          🎯 標準エイム
+        </button>
+        <button id="coolSkillBtn" type="button" class="shrink-0 px-2.5 py-2.5 rounded-xl bg-cyan-950/90 border border-cyan-400/60 text-[11px] sm:text-xs font-cyber font-bold text-cyan-200 active:scale-95">
+          ❄️ 冷却/神技 <span id="coolSkillState" class="text-emerald-300">READY</span>
+        </button>
+        <button id="overdriveBtn" type="button" disabled class="flex-1 py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900/95 text-slate-400 font-cyber font-black text-[11px] sm:text-xs flex items-center justify-between transition-all active:scale-95">
+          <span id="odBtnLabel">⚡ OVERDRIVE BURST</span>
+          <span id="spPercent" class="font-mono">0%</span>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ==================== 1. メイン基地画面 ==================== -->
+  <div id="titleModal" style="z-index: 40;" class="fixed inset-0 flex items-center justify-center p-2 sm:p-3 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+    <div class="w-full max-w-5xl bg-slate-900/95 border-2 border-cyan-500/50 rounded-2xl p-3 sm:p-4 shadow-2xl my-auto max-h-[96dvh] flex flex-col">
+
+      <!-- トップバー -->
+      <div class="flex flex-wrap justify-between items-center gap-1.5 border-b border-slate-800 pb-2 mb-2 shrink-0">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="px-2 py-0.5 rounded-full bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 border border-cyan-400/40 text-cyan-300 text-[10px] font-cyber font-bold">
+            VER 10.0 TRINITY & BOSS RUSH
+          </span>
+          <span id="saveIndicatorBadge" class="text-[10px] text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded font-mono">
+            💾 SAVED
+          </span>
+          <button id="champAuraToggleBtn" type="button" class="hidden px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/30 to-fuchsia-500/30 border border-amber-300 text-amber-200 text-[10px] font-bold">
+            👑 覇者オーラ: ON
+          </button>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="px-2 py-0.5 rounded bg-slate-800 border border-yellow-500/40 text-yellow-300 text-xs font-mono font-bold">🪙 <b id="baseCoins">0</b></span>
+          <span class="px-2 py-0.5 rounded bg-slate-800 border border-fuchsia-500/40 text-fuchsia-300 text-xs font-mono font-bold">💎 <b id="baseGems">0</b></span>
+          <span class="px-2 py-0.5 rounded bg-slate-800 border border-amber-500/40 text-amber-300 text-xs font-mono font-bold">🏅AP <b id="baseAp">0</b></span>
+          <button id="openTheaterBtn" type="button" class="px-2 py-1 rounded bg-fuchsia-950 border border-fuchsia-400/60 text-fuchsia-200 text-[11px] font-bold hover:bg-fuchsia-900">🎬 シアター</button>
+          <button id="titleBgmBtn" type="button" class="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[11px]">🎵 BGM: ON</button>
+          <button id="titleSeBtn" type="button" class="px-2 py-1 rounded bg-slate-800 border border-slate-600 text-[11px]">🔊 SE: ON</button>
+          <button id="openSaveModalBtn" type="button" class="px-2 py-1 rounded bg-cyan-950 border border-cyan-500/60 text-cyan-200 text-[11px] font-bold">⚙️ セーブ/秘密コード</button>
+        </div>
+      </div>
+
+      <!-- タイトルヘッダー -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2 shrink-0">
+        <div>
+          <h1 class="text-lg sm:text-2xl font-cyber font-black tracking-wider bg-gradient-to-r from-cyan-300 via-blue-400 to-fuchsia-400 bg-clip-text text-transparent">
+            RECOIL STRIKE : OVERDRIVE
+          </h1>
+          <p class="text-[11px] text-slate-400">NORMAL(W10)・HEARD(W20)・MYTHIC(W100) ＋ 5連戦『BOSS RUSH』搭載</p>
+        </div>
+        <button id="aimModeToggleBtn" type="button" class="self-start sm:self-auto px-3 py-1.5 rounded-xl bg-slate-800 border border-cyan-400/60 text-cyan-200 text-xs font-bold">
+          🎯 操作モード: 標準エイム
+        </button>
+      </div>
+
+      <!-- 4タブナビゲーション -->
+      <div class="grid grid-cols-4 gap-1.5 mb-2.5 shrink-0">
+        <button id="tabBtnSortie" type="button" class="tab-active py-2 px-1 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-300">🚀 出撃・機体</button>
+        <button id="tabBtnGacha" type="button" class="py-2 px-1 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-300">🎰 ガチャ・編成</button>
+        <button id="tabBtnShop" type="button" class="py-2 px-1 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-300">🛠️ 恒久強化</button>
+        <button id="tabBtnRecords" type="button" class="py-2 px-1 rounded-xl border border-slate-700 bg-slate-800/80 text-xs font-bold text-slate-300">🏆 実績・図鑑</button>
+      </div>
+
+      <!-- タブ本体 -->
+      <div class="flex-1 overflow-y-auto pr-1 space-y-3 min-h-0">
+
+        <!-- タブ1: 出撃・モード・機体選択 -->
+        <div id="tabPanelSortie" class="space-y-3">
+          <!-- モード選択 -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
+            <div class="flex justify-between items-center mb-1.5 flex-wrap gap-1">
+              <span class="text-xs font-bold text-cyan-300">🔥 1. モード選択（NORMAL:全10W / HEARD:全20W / MYTHIC:全100W / BOSS RUSH:特殊5連戦）</span>
+              <span id="selectedDiffInfo" class="text-[11px] text-amber-300 font-mono"></span>
+            </div>
+            <div id="diffSelectGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+          </div>
+
+          <!-- ボスラッシュ特別ルール案内バナー -->
+          <div id="bossRushNoticeBanner" class="hidden bg-rose-950/50 border-2 border-rose-500/70 rounded-xl p-2.5 text-xs space-y-1">
+            <div class="font-bold text-rose-300 flex items-center justify-between">
+              <span>⚔️ 【BOSS RUSH 特別レギュレーション】</span>
+              <span class="text-[10px] font-mono text-amber-300">🎁 初制覇で4大特典解放！</span>
+            </div>
+            <p class="text-[11px] text-slate-200 leading-relaxed">
+              ・ショップの恒久強化やガチャ装備は<b>すべて無効化（標準スペック固定）</b>され、純粋な技術・判断力・WAVE強化運のみで挑む超高難度5連戦です！<br>
+              ・通常は<b>標準機（TYPE-1 ヴァルキリー）固定</b>ですが、<b>MYTHIC(WAVE 100)を完全制覇すると最強の3機目『TYPE-3 クロノス・セラフ』でも挑戦可能</b>になります！<br>
+              ・ボス戦中に逃げ回る<b>「📦逃亡サプライボックス」</b>を逃走前に撃破すると、回復＋強化カード＋ランダムバフがその場で手に入ります！
+            </p>
+          </div>
+
+          <!-- 機体選択（全3機） -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
+            <div class="flex justify-between items-center mb-1.5 flex-wrap gap-1">
+              <span class="text-xs font-bold text-cyan-300">✈️ 2. ヒーロー機体セレクト（全3機：HEARD制覇で2機目、MYTHIC制覇で最強の3機目が解放！）</span>
+              <span id="sortieEquippedSummary" class="text-[11px] text-fuchsia-300 font-mono">装備モジュール: 0/3</span>
+            </div>
+            <div id="shipSelectGrid" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5"></div>
+          </div>
+
+          <!-- 中断セーブ再開パネル -->
+          <div id="savedRunResumePanel" class="hidden bg-emerald-950/40 border-2 border-emerald-500/60 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div>
+              <div class="text-xs font-bold text-emerald-300" id="savedRunResumeTitle">💾 中断セーブデータ検出</div>
+              <div class="text-[11px] text-slate-300" id="savedRunResumeSub">現在選択中の機体・装備で再開できます！</div>
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <button id="continueBtn" type="button" class="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs shadow-lg active:scale-95">
+                ▶️ WAVE から再開
+              </button>
+              <button id="discardSaveRunBtn" type="button" class="px-2.5 py-2.5 rounded-xl bg-rose-950 border border-rose-500/60 text-rose-300 text-xs font-bold">
+                🗑️ 破棄
+              </button>
+            </div>
+          </div>
+
+          <!-- 新規出撃ボタン -->
+          <button id="startBtn" type="button" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-500 to-fuchsia-600 text-white font-cyber font-black text-base sm:text-lg tracking-wider shadow-xl hover:brightness-110 active:scale-98 transition-all">
+            🚀 SORTIE - WAVE 1 から出撃開始
+          </button>
+        </div>
+
+        <!-- タブ2: ガチャ＆装備編成 -->
+        <div id="tabPanelGacha" class="hidden space-y-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div class="bg-slate-950/90 border border-yellow-500/40 rounded-xl p-3">
+              <div class="text-xs font-bold text-yellow-300 mb-1">🪙 コインガチャ（N〜SSR・まれにUR）</div>
+              <p class="text-[11px] text-slate-400 mb-2">戦場で集めたコインでカスタムモジュールを開発します。重複で+Lvが自動強化されます。</p>
+              <div class="flex gap-2">
+                <button id="gachaCoin1Btn" type="button" class="flex-1 py-2 rounded-xl bg-yellow-500/20 border border-yellow-400 text-yellow-200 font-bold text-xs">1回 (100🪙)</button>
+                <button id="gachaCoin10Btn" type="button" class="flex-1 py-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-500 text-slate-950 font-black text-xs">10連 (900🪙)</button>
+              </div>
+            </div>
+            <div class="bg-slate-950/90 border border-fuchsia-500/40 rounded-xl p-3">
+              <div class="text-xs font-bold text-fuchsia-300 mb-1">💎 神話ジェムガチャ（SR以上確定・UR/LR神話遺物高確率！）</div>
+              <p class="text-[11px] text-slate-400 mb-2">ボス撃破や実績報酬のジェムを使用。10連はSSR以上1枠確定！</p>
+              <div class="flex gap-2">
+                <button id="gachaGem1Btn" type="button" class="flex-1 py-2 rounded-xl bg-fuchsia-500/20 border border-fuchsia-400 text-fuchsia-200 font-bold text-xs">1回 (10💎)</button>
+                <button id="gachaGem10Btn" type="button" class="flex-1 py-2 rounded-xl bg-gradient-to-r from-fuchsia-500 via-pink-500 to-amber-400 text-slate-950 font-black text-xs">10連 (90💎)</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="gachaResultArea" class="hidden bg-slate-950 border-2 border-amber-400/70 rounded-xl p-3">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-xs font-bold text-amber-300">✨ ガチャ抽選結果</span>
+              <button id="closeGachaResultBtn" type="button" class="text-xs text-slate-400 hover:text-white">✖ 閉じる</button>
+            </div>
+            <div id="gachaResultGrid" class="grid grid-cols-2 sm:grid-cols-5 gap-1.5"></div>
+          </div>
+
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+              <span class="text-xs font-bold text-cyan-300">🧩 モジュール編成（最大3枠・NORMAL/HEARD/MYTHICで有効）</span>
+              <button id="autoEquipBtn" type="button" class="px-3 py-1 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 font-black text-xs">✨ 最強モジュール自動編成</button>
+            </div>
+            <div id="moduleInventoryGrid" class="grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
+          </div>
+        </div>
+
+        <!-- タブ3: 恒久強化ショップ -->
+        <div id="tabPanelShop" class="hidden space-y-3">
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-3">
+            <div class="text-xs font-bold text-cyan-300 mb-2">🛠️ 基地恒久アップグレード（NORMAL / HEARD / MYTHIC に常時適用）</div>
+            <div id="shopGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+          </div>
+        </div>
+
+        <!-- タブ4: 実績＆ビジュアル図鑑 -->
+        <div id="tabPanelRecords" class="hidden space-y-3">
+          <!-- モード別ハイスコアボード -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
+            <div class="text-xs font-bold text-amber-300 mb-1.5">🏅 モード別ハイスコア＆完全制覇ステータス</div>
+            <div id="highScoreBoardGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+          </div>
+
+          <!-- ビジュアル図鑑（CODEX：全22種） -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
+            <div class="flex flex-wrap justify-between items-center gap-1.5 mb-2">
+              <span class="text-xs font-bold text-cyan-300">📖 エネミー＆全12大ボス・ビジュアル図鑑（未撃破は🔒SECRETシルエット表示）</span>
+              <span id="codexProgressBadge" class="text-[11px] font-mono text-emerald-300">解放: 0/22</span>
+            </div>
+            <div id="codexFilterBar" class="flex flex-wrap gap-1 mb-2"></div>
+            <div id="codexGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-72 overflow-y-auto pr-1"></div>
+          </div>
+
+          <!-- 実績リスト -->
+          <div class="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5">
+            <div class="text-xs font-bold text-fuchsia-300 mb-1.5">🏆 実績ミッション（達成で💎ジェム＆🏅AP獲得）</div>
+            <div id="achievementGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 2. WAVEクリア強化カード選択モーダル ==================== -->
+  <div id="upgradeModal" style="z-index: 60;" class="hidden fixed inset-0 flex items-center justify-center p-2 sm:p-3 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+    <div class="w-full max-w-2xl bg-slate-900 border-2 border-cyan-400 rounded-2xl p-3 sm:p-4 shadow-2xl my-auto max-h-[94dvh] overflow-y-auto">
+      <div class="text-center mb-2 sm:mb-3">
+        <div id="upgradeModalSubtitle" class="text-[11px] sm:text-xs font-cyber text-cyan-400 font-bold">WAVE CLEARED & AUTO SAVED!</div>
+        <h2 id="upgradeModalTitle" class="text-base sm:text-xl font-black text-white">⚡ タクティカル強化カードを選択</h2>
+        <p class="text-[11px] sm:text-xs text-slate-400">上限（MAX）に達した強化は出現しません。すべてMAXになるとコインやダイヤを獲得できます！</p>
+        <div id="upgradeCountSummary" class="mt-1.5 inline-flex flex-wrap items-center justify-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950 border border-cyan-500/50 text-[10px] sm:text-xs font-mono text-cyan-200">
+          🃏 現在の累計強化回数: <b class="text-amber-300">0回</b>
+        </div>
+      </div>
+      <div id="upgradeCardsGrid" class="grid grid-cols-1 sm:grid-cols-3 gap-2"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 3. ゲームオーバーモーダル ==================== -->
+  <div id="gameOverModal" style="z-index: 65;" class="hidden fixed inset-0 flex items-center justify-center p-3 bg-slate-950/90 backdrop-blur-md">
+    <div class="w-full max-w-md bg-slate-900 border-2 border-rose-500 rounded-2xl p-5 text-center shadow-2xl">
+      <div class="text-rose-400 font-cyber font-black text-2xl mb-1">MISSION FAILED</div>
+      <p id="gameOverSubText" class="text-xs text-slate-300 mb-3">WAVE 1 で大破しました</p>
+      <div class="bg-slate-950 rounded-xl p-3 mb-4 text-xs font-mono space-y-1 border border-slate-800">
+        <div>FINAL SCORE: <b id="goScore" class="text-amber-300">0</b></div>
+        <div>REACHED WAVE: <b id="goWave" class="text-cyan-300">1</b></div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button id="retrySavedWaveBtn" type="button" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-sm">
+          🔄 このWAVE開始時点からリトライ
+        </button>
+        <button id="backToBaseBtn" type="button" class="w-full py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-slate-200 font-bold text-xs">
+          🏠 基地へ戻る
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 4. セーブ管理＆秘密コードモーダル ==================== -->
+  <div id="saveModal" style="z-index: 75;" class="hidden fixed inset-0 flex items-center justify-center p-3 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+    <div class="w-full max-w-lg bg-slate-900 border-2 border-cyan-400 rounded-2xl p-4 shadow-2xl space-y-3 my-auto">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+        <span class="font-bold text-sm text-cyan-300">⚙️ セーブデータ管理 ＆ 秘密のプロモコード</span>
+        <button id="closeSaveModalBtn" type="button" class="text-slate-400 hover:text-white text-sm">✖</button>
+      </div>
+
+      <!-- 🔒 パスワードロック画面（2929で解除） -->
+      <div id="secretPasswordGate" class="bg-slate-950 p-3.5 rounded-xl border border-fuchsia-500/40 space-y-2">
+        <div class="text-xs font-bold text-fuchsia-300 flex items-center justify-between">
+          <span>🔒 秘密コード入力画面（パスワード保護中）</span>
+          <span class="text-[10px] text-slate-400 font-mono">PASSWORD REQUIRED</span>
+        </div>
+        <p class="text-[11px] text-slate-400">秘密コード画面を開くにはパスワードを入力してください。</p>
+        <div class="flex gap-1.5">
+          <input id="secretGateInput" type="password" inputmode="numeric" placeholder="パスワードを入力" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+          <button id="secretGateSubmitBtn" type="button" class="px-3.5 py-1.5 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold text-xs">🔓 ロック解除</button>
+        </div>
+        <div id="secretGateMsg" class="text-[11px] text-rose-400 font-bold min-h-[1rem]"></div>
+      </div>
+
+      <!-- 🔑 秘密コード入力＆スマホ用ワンタップボタン（パスワード解除後に表示） -->
+      <div id="secretCodeMainPanel" class="hidden bg-slate-950 p-3 rounded-xl border border-fuchsia-500/40 space-y-2">
+        <div class="flex justify-between items-center">
+          <div class="text-xs font-bold text-fuchsia-300">🔑 秘密コード入力（テスト用ワンタップボタン対応）</div>
+          <button id="relockSecretPanelBtn" type="button" class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-300 hover:text-white">🔒 閉じる</button>
+        </div>
+        <div class="flex gap-1.5">
+          <input id="secretCodeInput" type="text" placeholder="コードを入力 (例: TYPE3, 2525, 5050, 100, 7777)" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono">
+          <button id="secretCodeSubmitBtn" type="button" class="px-3 py-1.5 rounded-lg bg-fuchsia-600 text-white font-bold text-xs">実行</button>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5 pt-1">
+          <button id="quickCodeType3Btn" type="button" class="col-span-2 p-2 rounded bg-gradient-to-r from-fuchsia-900 via-purple-900 to-indigo-900 border border-fuchsia-400 text-fuchsia-100 text-[11px] font-bold shadow">⚡ 『TYPE3』最強機体 TYPE-3（クロノス・セラフ）即時解放！</button>
+          <button id="quickCode2525Btn" type="button" class="p-1.5 rounded bg-cyan-950 border border-cyan-500/50 text-cyan-200 text-[10px] font-bold">🎬 『2525』MYTHIC W25直行</button>
+          <button id="quickCode5050Btn" type="button" class="p-1.5 rounded bg-amber-950 border border-amber-500/50 text-amber-200 text-[10px] font-bold">★ 『5050』MYTHIC W50隠しボス</button>
+          <button id="quickCode100Btn" type="button" class="p-1.5 rounded bg-rose-950 border border-rose-500/50 text-rose-200 text-[10px] font-bold">★★ 『100』MYTHIC W100真ボス</button>
+          <button id="quickCode7777Btn" type="button" class="p-1.5 rounded bg-fuchsia-950 border border-fuchsia-500/50 text-fuchsia-200 text-[10px] font-bold">🌌 『7777』全3機体＆特典解放</button>
+          <button id="quickCodeRushBtn" type="button" class="col-span-2 p-1.5 rounded bg-rose-900/80 border border-amber-400/70 text-amber-200 text-[10px] font-bold">👑 『RUSH5』BOSS RUSH 最終戦(W5)直行セーブ生成</button>
+        </div>
+      </div>
+
+      <!-- バックアップJSON -->
+      <div class="space-y-1.5">
+        <div class="text-xs font-bold text-slate-300">📋 バックアップJSONコード</div>
+        <textarea id="saveCodeBox" rows="3" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-[10px] font-mono text-emerald-300"></textarea>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+          <button id="manualSaveBtn" type="button" class="py-1.5 rounded bg-emerald-600 text-slate-950 font-bold text-xs">💾 手動セーブ</button>
+          <button id="exportSaveBtn" type="button" class="py-1.5 rounded bg-cyan-600 text-slate-950 font-bold text-xs">📋 コピー</button>
+          <button id="importSaveBtn" type="button" class="py-1.5 rounded bg-amber-500 text-slate-950 font-bold text-xs">📥 復元</button>
+          <button id="resetSaveBtn" type="button" class="py-1.5 rounded bg-rose-900 text-rose-200 font-bold text-xs">🗑️ 初期化</button>
+        </div>
+        <div id="saveModalMsg" class="text-xs text-amber-300 font-bold text-center min-h-[1rem]"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 5. OP / 各モードED ストーリームービーモーダル ==================== -->
+  <div id="movieModal" style="z-index: 85;" class="hidden fixed inset-0 flex items-center justify-center p-2 sm:p-4 bg-slate-950/95 backdrop-blur-lg overflow-y-auto">
+    <div class="w-full max-w-3xl bg-slate-900 border-2 border-cyan-400/70 rounded-2xl p-3 sm:p-4 shadow-2xl my-auto space-y-2.5">
+      <!-- シアター切替バー -->
+      <div class="flex flex-wrap justify-between items-center gap-1 border-b border-slate-800 pb-2">
+        <div class="flex items-center gap-1 flex-wrap">
+          <span id="movieTypeBadge" class="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-[10px] font-cyber font-bold">OPENING MOVIE</span>
+          <button type="button" data-movie="OP" class="theater-btn px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">🎬OP</button>
+          <button type="button" data-movie="ED_NORMAL" class="theater-btn px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">NORMAL ED</button>
+          <button type="button" data-movie="ED_HEARD" class="theater-btn px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">HEARD ED</button>
+          <button type="button" data-movie="ED_MYTHIC25" class="theater-btn px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">MYTHIC W25</button>
+          <button type="button" data-movie="ED_MYTHIC100" class="theater-btn px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">MYTHIC W100</button>
+          <button type="button" data-movie="ED_BOSSRUSH" class="theater-btn px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300">BOSS RUSH ED</button>
+        </div>
+        <span id="movieSceneIndicator" class="text-[11px] font-mono text-amber-300">SCENE 1/4</span>
+      </div>
+
+      <!-- ムービーアニメーションキャンバス -->
+      <div class="relative w-full h-48 sm:h-64 bg-slate-950 rounded-xl overflow-hidden border border-slate-700">
+        <canvas id="movieCanvas" width="720" height="280" class="w-full h-full block"></canvas>
+        <div class="absolute bottom-0 inset-x-0 h-1.5 bg-slate-800">
+          <div id="movieProgressBar" class="h-full bg-gradient-to-r from-cyan-400 to-fuchsia-400 transition-all duration-100" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- ストーリー字幕ボックス -->
+      <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3 space-y-1">
+        <div id="movieSceneTitle" class="text-xs sm:text-sm font-cyber font-black text-cyan-300">SCENE 1</div>
+        <p id="movieSceneText" class="text-xs sm:text-sm text-slate-200 leading-relaxed min-h-[2.8rem]"></p>
+        <div id="movieUnlockRewardBanner" class="hidden mt-2 p-2 rounded-lg bg-amber-500/20 border border-amber-400 text-amber-200 text-xs font-bold text-center"></div>
+      </div>
+
+      <!-- シーン切替＆メインアクションボタン -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1">
+        <div class="flex items-center gap-1.5 w-full sm:w-auto justify-center">
+          <div id="movieSceneDots" class="flex gap-1"></div>
+          <button id="movieNextSceneBtn" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-600 text-xs font-bold text-cyan-200">⏭️ 次のシーン</button>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button id="movieSecondaryActionBtn" type="button" class="hidden flex-1 sm:flex-initial px-4 py-3 rounded-xl bg-slate-800 border border-slate-600 text-slate-200 font-bold text-xs">
+            🏠 基地へ帰還する
+          </button>
+          <button id="moviePrimaryActionBtn" type="button" class="flex-1 sm:flex-initial px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-500 to-fuchsia-500 text-white font-cyber font-black text-xs sm:text-sm shadow-lg active:scale-95">
+            🚀 START GAME（基地画面へ）
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    // ==================== 1. 定数・4モード（NORMAL / HEARD / MYTHIC / BOSSRUSH）・3機体定義 ====================
+    const SAVE_KEY = 'recoil_strike_overdrive_v100_save';
+
+    const DIFFICULTIES = {
+      NORMAL: {
+        id: 'NORMAL', name: 'NORMAL', stars: '★☆☆', maxWave: 10,
+        hpMul: 1.0, spdMul: 1.0, atkMul: 1.0, coinMul: 1.0, countMul: 1.0, maxSimul: 8, bulletSpdMul: 1.0, fireRateMul: 1.0,
+        color: '#22d3ee', desc: '全10 WAVE（ボス2体：W5・W10）で完全クリア！基本操作の習熟に最適。'
+      },
+      HEARD: {
+        id: 'HEARD', name: 'HEARD', stars: '★★☆', maxWave: 20,
+        hpMul: 2.3, spdMul: 1.32, atkMul: 1.5, coinMul: 1.6, countMul: 1.4, maxSimul: 13, bulletSpdMul: 1.3, fireRateMul: 1.3,
+        color: '#f59e0b', desc: '全20 WAVE（NORMALの2体＋追加2体の計4体ボス）！完全制覇で2機目『TYPE-2』解放！'
+      },
+      MYTHIC: {
+        id: 'MYTHIC', name: 'MYTHIC', stars: '★★★', maxWave: 100,
+        hpMul: 4.5, spdMul: 1.55, atkMul: 2.1, coinMul: 2.8, countMul: 1.75, maxSimul: 18, bulletSpdMul: 1.55, fireRateMul: 1.55,
+        color: '#c084fc', desc: '全100 WAVE！W25固有ボス撃破で中間ED＆継続選択、W50・W100隠しボス撃破で最強機『TYPE-3』解放！'
+      },
+      BOSSRUSH: {
+        id: 'BOSSRUSH', name: 'BOSS RUSH', stars: '👑HELL EX', maxWave: 5,
+        hpMul: 1.65, spdMul: 1.65, atkMul: 2.2, coinMul: 4.0, countMul: 1.0, maxSimul: 1, bulletSpdMul: 1.68, fireRateMul: 1.75,
+        color: '#f43f5e', desc: '【極限難易度】全5 WAVE・特殊凶悪ボス5連戦！恒久強化＆装備無効の純粋スキル勝負。制覇で4大特典！'
+      }
+    };
+
+    // ヒーロー機体（3機に集約）
+    const SHIPS = {
+      A: {
+        id: 'A', tier: 'TYPE-1 [STANDARD]', name: '蒼騎士ヴァルキリー', sub: 'BLADE VALKYRIE', color: '#38bdf8',
+        atk: 22, ways: 3, hp: 140, recoil: 13.5, smash: 50, dmgRed: 0.05, pierce: 1, bounce: 0, crit: 0.12, backstab: 2.5,
+        skillName: '蒼翼の導き', skillDesc: 'チャージ速度+25%・JUSTチャージ判定枠拡大(70〜98%)',
+        odName: 'ヴァルキリー・スターバースト', unlockText: '初期解放（全モード＆ボスラッシュ標準機）'
+      },
+      B: {
+        id: 'B', tier: 'TYPE-2 [HEAVY & PHANTOM]', name: '紅蓮鬼神タイタン・改', sub: 'CRIMSON TITAN', color: '#f59e0b',
+        atk: 42, ways: 5, hp: 210, recoil: 15.0, smash: 120, dmgRed: 0.25, pierce: 3, bounce: 1, crit: 0.28, backstab: 3.2,
+        skillName: '紅蓮金剛殻＆暗殺弾', skillDesc: '全弾貫通3＆壁反射1回・体当たり威力2.4倍・SMASH撃破でHP+10回復',
+        odName: 'ギガ・紅蓮カタストロフ', unlockText: '解放条件: HEARDモード（WAVE 20）を完全クリア'
+      },
+      OMEGA: {
+        id: 'OMEGA', tier: 'TYPE-3 [ULTIMATE GOD]', name: '創世神クロノス・セラフ', sub: 'CHRONOS SERAPH Ω', color: '#e879f9',
+        atk: 110, ways: 7, hp: 320, recoil: 17.0, smash: 220, dmgRed: 0.45, pierce: 7, bounce: 2, crit: 0.55, backstab: 4.0,
+        skillName: '創世神威・時空超越', skillDesc: 'HEAT常時0%(オーバーヒート無効)・周囲敵弾50%減速・WAVE毎1回自動蘇生・神光追尾弾4発',
+        odName: 'クロノス・ディメンション・ゼロ', unlockText: '解放条件: MYTHICモード（WAVE 100）を完全クリア（ボスラッシュでも使用可能！）'
+      }
+    };
+
+    // ==================== 2. 通常エネミー10種 ＆ 全12体のボス定義（物語ボス7体＋ボスラッシュ専用5体） ====================
+    const ENEMY_TYPES = {
+      BAT:      { id: 'BAT',      name: 'デビルバット',       hp: 34,  spd: 2.3, r: 15, color: '#fb7185', score: 100, desc: '素早く接近する悪魔コウモリ。' },
+      OCTO:     { id: 'OCTO',     name: 'オクトガンナー',     hp: 58,  spd: 1.4, r: 18, color: '#a855f7', score: 150, desc: '触手を揺らし狙撃弾を放つタコ型砲兵。' },
+      GOLEM:    { id: 'GOLEM',    name: 'スパイクゴーレム',   hp: 105, spd: 1.0, r: 22, color: '#f97316', score: 220, desc: '赤トゲ展開中の体当たりは反撃されるため射撃で倒そう。' },
+      GAZER:    { id: 'GAZER',    name: 'スナイパーゲイザー', hp: 52,  spd: 1.2, r: 17, color: '#38bdf8', score: 180, desc: '高速レーザー弾で遠距離から狙い撃つ魔眼。' },
+      AEGIS:    { id: 'AEGIS',    name: 'イージスナイト',     hp: 95,  spd: 1.2, r: 20, color: '#60a5fa', score: 260, desc: '正面の盾で弾を軽減する。背後に回り込んでBACKSTABを狙え！' },
+      JELLY:    { id: 'JELLY',    name: 'プラズマジェリー',   hp: 48,  spd: 1.8, r: 16, color: '#2dd4bf', score: 160, desc: '電撃パルスを放ちながら浮遊するクラゲ生命体。' },
+      SCORPION: { id: 'SCORPION', name: 'ボマースコーピオン', hp: 82,  spd: 1.5, r: 19, color: '#84cc16', score: 210, desc: '3方向へ炸裂毒針弾を撃ち出す機械サソリ。' },
+      WRAITH:   { id: 'WRAITH',   name: 'シャドウレイス',     hp: 64,  spd: 2.1, r: 17, color: '#c084fc', score: 230, desc: '位相シフトで明滅しながら奇襲する亡霊。' },
+      PRIEST:   { id: 'PRIEST',   name: 'ネクロプリースト',   hp: 72,  spd: 1.1, r: 18, color: '#34d399', score: 250, desc: '周囲の敵のHPを回復させる魔導師。最優先で撃破せよ。' },
+      CARRIER:  { id: 'CARRIER',  name: '補給キャリアー',     hp: 60,  spd: 1.7, r: 19, color: '#facc15', score: 300, desc: '撃墜するとHP回復や冷却セル・シールドを確定ドロップする輸送船。' }
+    };
+
+    // 全12体のボス定義（モード構成と完全一致）
+    const BOSS_CATALOG = {
+      // NORMAL & HEARD & MYTHIC 共通のW5, W10ボス (2体)
+      BOSS_W5:  { id: 'BOSS_W5',  group: 'MAIN', waveLabel: 'W5',  name: '獄炎魔王 キング・デモン',     arch: 'DEMON',     color: '#ef4444', desc: '全モードWAVE 5ボス。黒炎翼と魔角を持つ魔王。放射火炎弾を放つ。' },
+      BOSS_W10: { id: 'BOSS_W10', group: 'MAIN', waveLabel: 'W10', name: '絡繰女郎蜘蛛 アラクネ・マザー',arch: 'ARACHNE',   color: '#a855f7', desc: 'NORMAL最終(W10)ボス。8本のメカ脚から捕縛弾幕を展開する。' },
+      // HEARD & MYTHIC 追加のW15, W20ボス (2体 -> 計4体)
+      BOSS_W15: { id: 'BOSS_W15', group: 'MAIN', waveLabel: 'W15', name: '深淵海竜 リヴァイアサン',     arch: 'LEVIATHAN', color: '#06b6d4', desc: 'HEARD/MYTHIC WAVE 15ボス。うねる龍体で戦場を泳ぎ渦潮弾を撃つ。' },
+      BOSS_W20: { id: 'BOSS_W20', group: 'MAIN', waveLabel: 'W20', name: '断罪機神 セラフィム・イージス',arch: 'SERAPH',    color: '#f59e0b', desc: 'HEARD最終(W20)ボス。6枚刃翼の堕天使。撃破で2機目『TYPE-2』解放！' },
+      // MYTHIC 専用 W25, W50隠し, W100真・隠しボス (3体)
+      BOSS_M25:  { id: 'BOSS_M25',  group: 'MYTHIC', waveLabel: 'MYTHIC W25',  name: '終焉皇帝 カオス・エンペラー',   arch: 'SKELETON',  color: '#ec4899', desc: 'MYTHIC WAVE 25固有ボス。撃破すると中間エンディングが流れ、W26以降へ継続可能！' },
+      BOSS_M50:  { id: 'BOSS_M50',  group: 'MYTHIC', waveLabel: 'MYTHIC W50',  name: '★星喰らいのアビス・センチネル',arch: 'FORTRESS',  color: '#14b8a6', desc: 'MYTHIC WAVE 50 第1隠しボス。全方位レーザー砲門を備える古代要塞。' },
+      BOSS_M100: { id: 'BOSS_M100', group: 'MYTHIC', waveLabel: 'MYTHIC W100', name: '★★創世と終焉の神 ネメシス・ゼロ',arch: 'DESTROYER', color: '#fde047', desc: 'MYTHIC WAVE 100 真・最終隠しボス。撃破で最強機『TYPE-3 クロノス・セラフ』解放！' },
+      // BOSS RUSH 専用ギミックボス (5体：特殊攻撃大幅強化)
+      BR_1: { id: 'BR_1', group: 'BOSSRUSH', waveLabel: 'RUSH 1', name: '① 殲滅魔眼 プリズム・ゲイザー',   arch: 'BR_BEAM',   color: '#38bdf8', gimmick: 'BEAM',   desc: '【特殊能力：回転薙ぎ払い極太ツインレーザー＆プリズムリング弾】ロックオン後に回転する極太貫通ビームで戦場を焼き払う！' },
+      BR_2: { id: 'BR_2', group: 'BOSSRUSH', waveLabel: 'RUSH 2', name: '② 幻影妖狐 ミラージュ・ファントム',arch: 'BR_CLONE',  color: '#c084fc', gimmick: 'CLONE',  desc: '【特殊能力：瞬間移動ワープ奇襲＆3体分身イリュージョン】戦場をテレポで飛び回り、分身と一斉に全方位クロス弾幕を放つ！' },
+      BR_3: { id: 'BR_3', group: 'BOSSRUSH', waveLabel: 'RUSH 3', name: '③ 絶対防壁 パラディン・イージス', arch: 'BR_SHIELD', color: '#60a5fa', gimmick: 'FRONT_IMMUNE', desc: '【特殊能力：正面カウンター反射盾＆超高速シールドバッシュ】正面への攻撃を無効化して反撃弾を跳ね返す！突進をかわし背後を撃て！' },
+      BR_4: { id: 'BR_4', group: 'BOSSRUSH', waveLabel: 'RUSH 4', name: '④ 暴走巨神 ギガント・ベヒーモス', arch: 'BR_GIANT',  color: '#f97316', gimmick: 'GIANT',  desc: '【特殊能力：重力ブラックホール吸引＆巨大化メテオ炸裂】強烈な重力で自機を引き寄せながら2.2倍に巨大化してプレス突進を繰り出す！' },
+      BR_5: { id: 'BR_5', group: 'BOSSRUSH', waveLabel: 'RUSH 5', name: '⑤ 次元覇王 オメガ・ヴァルハラ',   arch: 'BR_OMEGA',  color: '#f43f5e', gimmick: 'INVULN_ALL', desc: '【最終試練：無敵障壁＋回転ツインレーザー＋ワープ＋重力＋渦巻弾幕】全特殊能力と高密度スパイラル弾幕を操るボスラッシュ最終支配者！' }
+    };
+
+    // ==================== 3. ガチャモジュール19種（ボスラッシュ特典LR含む）・ショップ・WAVE強化カード ====================
+    const GACHA_POOL = [
+      { id: 'M01', rarity: 'N',   name: '連射バレルI',      desc: 'ATK +12%',                 atkMul: 0.12 },
+      { id: 'M02', rarity: 'N',   name: 'チタン装甲板',      desc: '最大HP +25',               hpAdd: 25 },
+      { id: 'M03', rarity: 'N',   name: '反動ブースター',    desc: '体当たり威力 +20%',        smashMul: 0.20 },
+      { id: 'M04', rarity: 'R',   name: '高圧コンデンサ',    desc: 'ATK +22%・CRIT +5%',       atkMul: 0.22, critAdd: 0.05 },
+      { id: 'M05', rarity: 'R',   name: '冷却ラジエーター',  desc: 'HEAT上昇 -25%',            coolBonus: 0.25 },
+      { id: 'M06', rarity: 'R',   name: 'イージスシールド',  desc: '被ダメージ軽減 +10%',      dmgRed: 0.10 },
+      { id: 'M07', rarity: 'SR',  name: '貫通タングステン',  desc: '貫通数 +2・ATK +28%',      pierceAdd: 2, atkMul: 0.28 },
+      { id: 'M08', rarity: 'SR',  name: '反射ミラープリズム',desc: '弾の壁反射 +1・ATK +25%',  bounceAdd: 1, atkMul: 0.25 },
+      { id: 'M09', rarity: 'SR',  name: '吸血ナノマシン',    desc: '敵撃破時にHP +3回復',      vampAdd: 3 },
+      { id: 'M10', rarity: 'SSR', name: '拡散マルチポッド',  desc: '発射弾数 +2WAY・ATK +35%', wayAdd: 2, atkMul: 0.35 },
+      { id: 'M11', rarity: 'SSR', name: '暗殺者の光学迷彩',  desc: '背面特効 +1.0倍・CRIT+15%',backAdd: 1.0, critAdd: 0.15 },
+      { id: 'M12', rarity: 'SSR', name: '龍脈リアクター',    desc: '最大HP +80・SP獲得 +40%',  hpAdd: 80, spMul: 0.40 },
+      { id: 'M13', rarity: 'UR',  name: '神速ヴァルキリー翼',desc: 'ATK +65%・弾数 +2WAY',     atkMul: 0.65, wayAdd: 2 },
+      { id: 'M14', rarity: 'UR',  name: '不滅の魔王核',      desc: 'ATK +55%・撃破HP +6回復',  atkMul: 0.55, vampAdd: 6 },
+      { id: 'M15', rarity: 'UR',  name: '次元貫通レールコア',desc: '貫通 +4・壁反射 +2',       pierceAdd: 4, bounceAdd: 2 },
+      { id: 'M16', rarity: 'LR',  name: '★創世神の聖冠',    desc: 'ATK +110%・弾数 +2WAY・軽減+15%', atkMul: 1.10, wayAdd: 2, dmgRed: 0.15 },
+      { id: 'M17', rarity: 'LR',  name: '★永劫ウロボロス輪',desc: 'ATK +95%・撃破HP+10・貫通+5',     atkMul: 0.95, vampAdd: 10, pierceAdd: 5 },
+      { id: 'M18', rarity: 'LR',  name: '★アカシックレコード',desc: '全能力強化(ATK+130%・CRIT+25%)', atkMul: 1.30, critAdd: 0.25, bounceAdd: 2 },
+      { id: 'M_CHAMP', rarity: 'LR', name: '👑覇王の極光冠(RUSH特典)', desc: '【ボスラッシュ制覇特典】ATK+150%・+2WAY・CRIT+30%・吸収+12', atkMul: 1.50, wayAdd: 2, critAdd: 0.30, vampAdd: 12, specialOnly: true }
+    ];
+
+    const SHOP_ITEMS = [
+      { id: 'hp',    name: '❤️ 強化ナノフレーム', desc: '基礎最大HP +20 / Lv',   baseCost: 80,  maxLv: 30 },
+      { id: 'atk',   name: '⚔️ 高出力武器コア',   desc: '基礎攻撃力 +10% / Lv', baseCost: 100, maxLv: 30 },
+      { id: 'smash', name: '💥 反動装甲スパイク', desc: '体当たり威力 +15% / Lv',baseCost: 90,  maxLv: 25 },
+      { id: 'coin',  name: '🪙 強欲マグネット',   desc: '獲得コイン +15% / Lv',  baseCost: 120, maxLv: 20 }
+    ];
+
+    // 厳格な上限（maxLv）を持つWAVE強化カード（上限到達後は出現しない）
+    const WAVE_CARDS = [
+      { id: 'atkUp',  name: '⚔️ ハイパーバレル',   desc: '攻撃力 +15% アップ (上限10回)',          icon: '⚔️', maxLv: 10 },
+      { id: 'multi',  name: '🔫 マルチウェイ',     desc: '同時発射弾数 +1 WAY (上限5回)',         icon: '🔫', maxLv: 5 },
+      { id: 'pierce', name: '🗡️ 貫通レーザー',     desc: '弾の敵貫通数 +1 (上限6回)',             icon: '🗡️', maxLv: 6 },
+      { id: 'bounce', name: '🪞 ミラーリフレクト', desc: '弾が壁で +1回 反射 (上限4回)',          icon: '🪞', maxLv: 4 },
+      { id: 'homing', name: '🚀 ホーミングポッド', desc: '追尾ミサイル +1発 (上限5回)',           icon: '🚀', maxLv: 5 },
+      { id: 'vamp',   name: '🩸 ヴァンパイアコア', desc: '撃破時HP +2 回復＆現在HP+25 (上限5回)', icon: '🩸', maxLv: 5 },
+      { id: 'shock',  name: '⚡ ウォールショック', desc: '壁バウンド時に衝撃波 (上限5回)',        icon: '⚡', maxLv: 5 },
+      { id: 'shield', name: '🛡️ イージスバリア',   desc: '最大HP+20 ＆ シールド+30付与 (上限8回)',icon: '🛡️', maxLv: 8 }
+    ];
+
+    // すべての強化が上限に達した際に出現するボーナス報酬カード
+    const FALLBACK_REWARD_CARDS = [
+      { id: 'reward_coin', name: '🪙 ゴールデン・チェスト', desc: '全強化MAXボーナス！ 🪙 +350 コインを即時獲得！', icon: '🪙', isFallback: true },
+      { id: 'reward_gem',  name: '💎 ミシック・ダイヤ',     desc: '全強化MAXボーナス！ 💎 +15 ジェムを即時獲得！',  icon: '💎', isFallback: true },
+      { id: 'reward_heal', name: '💖 フルリペア＆SP充填',   desc: 'HPを100%完全回復 ＆ シールド+50 ＆ SP100%チャージ！', icon: '💖', isFallback: true }
+    ];
+
+    // ==================== 4. OP / モード別EDムービースクリプト（新体制完全対応） ====================
+    const MOVIE_SCRIPTS = {
+      OP: {
+        badge: 'OPENING CHRONICLE',
+        rewardText: '',
+        scenes: [
+          { title: 'SCENE 1 : 西暦2188年・推進機関の消失', text: '次元侵食体『ヴォイド・レギオン』の襲来により、人類のあらゆる通常推進エンジンが無力化された。' },
+          { title: 'SCENE 2 : 逆転の翼『リコイル・ドライブ』', text: '残された唯一の移動手段――それは高出力キャノンを発射した瞬間の「反動（リコイル）」で空を翔ける3機の試作機だった！' },
+          { title: 'SCENE 3 : 3つの戦線と極限のボスラッシュ', text: 'NORMAL(全10W)・HEARD(全20W)・MYTHIC(全100W)、そして標準スペックで特殊ボス5連戦に挑む『BOSS RUSH』が幕を開ける。' },
+          { title: 'SCENE 4 : 出撃せよ、リコイル・ストライカー！', text: '狙いを定めてチャージし、反動で敵陣を粉砕せよ！すべての機体と図鑑を解放する戦いが今始まる。' }
+        ]
+      },
+      ED_NORMAL: {
+        badge: 'NORMAL COMPLETE - WAVE 10 CLEAR!',
+        rewardText: '🎉 NORMAL完全制覇報酬: 💎+40ジェム ＆ 🪙+500コイン獲得！次はHEARDモード(全20W)へ挑もう！',
+        scenes: [
+          { title: 'NORMAL ENDING 1 : 絡繰女郎蜘蛛の崩壊', text: 'WAVE 10――第2の支配者『絡繰女郎蜘蛛アラクネ・マザー』は、蒼き反動の一撃によってついに爆散した。' },
+          { title: 'NORMAL ENDING 2 : 前線基地の奪還', text: 'NORMAL戦線の全10 WAVEを完全制覇！あなたはリコイル・ドライブの基本戦術を完全にマスターした。' },
+          { title: 'NORMAL ENDING 3 : 次なる戦線『HEARD』へ', text: 'だが敵の本隊は全20 WAVEの『HEARD』モードで待ち構えている。HEARDを制覇し、第2の機体『TYPE-2』を解放せよ！' }
+        ]
+      },
+      ED_HEARD: {
+        badge: 'HEARD COMPLETE - WAVE 20 CLEAR!',
+        rewardText: '🎉 HEARD完全制覇報酬: 💎+80ジェム ＆ 第2の機体『TYPE-2 紅蓮鬼神タイタン・改』解放！',
+        scenes: [
+          { title: 'HEARD ENDING 1 : 断罪機神の墜落', text: 'WAVE 20――4体目の支配者『断罪機神セラフィム・イージス』の黄金翼を撃ち抜き、HEARD戦線を完全制覇した！' },
+          { title: 'HEARD ENDING 2 : 第2の機体『TYPE-2』起動！', text: '回収された高出力炉により、貫通反射弾と超重スマッシュを兼ね備えた2機目『TYPE-2 紅蓮鬼神タイタン・改』が解放された！' },
+          { title: 'HEARD ENDING 3 : 神話級MYTHICとBOSS RUSHへ', text: '次なる舞台は全100 WAVEの神話領域『MYTHIC』、そして純粋な技術で挑む『BOSS RUSH』だ！' }
+        ]
+      },
+      ED_MYTHIC25: {
+        badge: 'MYTHIC CHAPTER 1 CLEAR - WAVE 25',
+        rewardText: '🎉 MYTHIC W25突破報酬: 💎+100ジェム！このままWAVE 50・WAVE 100の隠しボスへ進撃可能！',
+        scenes: [
+          { title: 'MYTHIC EPISODE 1 : 終焉皇帝の討伐', text: 'MYTHIC WAVE 25――NORMALやHEARDには姿を現さなかった『終焉皇帝カオス・エンペラー』をついに撃破した！' },
+          { title: 'MYTHIC EPISODE 2 : 深淵への扉が開く', text: 'だがMYTHICの真の戦いはここからだ。WAVE 50には第1隠しボス、そして最終WAVE 100には創世の神が待ち受ける。' },
+          { title: 'MYTHIC EPISODE 3 : 選択の時', text: 'このままWAVE 26へ進んでWAVE 100完全制覇を目指すか、一度基地へ帰還するかを選択せよ！' }
+        ]
+      },
+      ED_MYTHIC100: {
+        badge: 'MYTHIC COMPLETE - WAVE 100 CLEAR!!',
+        rewardText: '🌌 MYTHIC完全制覇報酬: 💎+300ジェム ＆ 最強の3機目『TYPE-3 創世神クロノス・セラフ』解放！（ボスラッシュでも使用可能！）',
+        scenes: [
+          { title: 'MYTHIC GRAND FINALE 1 : 創世と終焉の神を超えて', text: '最終WAVE 100――真・隠しボス『創世と終焉の神ネメシス・ゼロ』を打ち破り、全100 WAVEの神話領域を完全制覇した！' },
+          { title: 'MYTHIC GRAND FINALE 2 : 最強の第3機体『TYPE-3』降臨', text: '時空を超越し敵弾を減速させ、自動蘇生とHEAT無効を持つ最強機『TYPE-3 創世神クロノス・セラフ』がついに解放された！' },
+          { title: 'MYTHIC GRAND FINALE 3 : ボスラッシュでのTYPE-3解禁', text: 'さらに特権として、本来は標準機固定の『BOSS RUSH』モードでも、この最強機『TYPE-3』で出撃することが可能になった！' }
+        ]
+      },
+      ED_BOSSRUSH: {
+        badge: '👑 BOSS RUSH CHAMPION - GOD SLAYER!!',
+        rewardText: '🏆 ボスラッシュ制覇4大特典: ①👑覇者虹オーラ解放 ②獲得コイン＆スコア永久2倍 ③限定LR『覇王の極光冠』 ④💎300＆🪙5000！',
+        scenes: [
+          { title: 'BOSS RUSH FINALE 1 : 5大特殊ボスの完全撃破', text: '極太ビーム・分身・正面無敵盾・巨大化プレス、そして全能力を操る『次元覇王オメガ・ヴァルハラ』を標準スペックで撃破！' },
+          { title: 'BOSS RUSH FINALE 2 : 覇者の4大特典授与！', text: 'その卓越した技術と運を讃え、虹色に輝く『覇者オーラ』、コイン＆スコア永久2倍特権、限定LR遺物『覇王の極光冠』が授与された！' },
+          { title: 'BOSS RUSH FINALE 3 : 伝説のリコイル・マスター', text: 'あなたはすべての試練を超越した真の覇者だ。黄金と虹の輝きを纏い、さらなるハイスコアへ翔け上がれ！' }
+        ]
+      }
+    };
+
+    // ==================== 5. セーブデータ管理 ====================
+    function createDefaultSave() {
+      return {
+        coins: 300,
+        gems: 30,
+        ap: 0,
+        selectedDiff: 'NORMAL',
+        selectedShip: 'A',
+        aimMode: 'standard',
+        bgmOn: true,
+        seOn: true,
+        hasSeenOp: false,
+        championAuraOn: true,
+        unlockedShips: { A: true, B: false, OMEGA: false },
+        modeCleared: { NORMAL: false, HEARD: false, MYTHIC25: false, MYTHIC100: false, BOSSRUSH: false },
+        secretBossCleared: { w50: false, w100: false },
+        promoAllUnlocked: false,
+        shop: { hp: 0, atk: 0, smash: 0, coin: 0 },
+        inventory: { M01: 1 },
+        equipped: ['M01'],
+        codexKills: {},
+        highScores: {
+          NORMAL: { score: 0, wave: 1 },
+          HEARD: { score: 0, wave: 1 },
+          MYTHIC: { score: 0, wave: 1 },
+          BOSSRUSH: { score: 0, wave: 1 }
+        },
+        achievements: {},
+        savedRuns: { NORMAL: null, HEARD: null, MYTHIC: null, BOSSRUSH: null }
+      };
+    }
+
+    let save = createDefaultSave();
+
+    function evaluateShipUnlocks() {
+      save.unlockedShips.A = true;
+      // 2機目(TYPE-B): HEARD完全クリア(W20) で解放
+      save.unlockedShips.B = !!(save.modeCleared.HEARD || save.promoAllUnlocked);
+      // 3機目(TYPE-OMEGA): MYTHIC完全クリア(W100) で解放
+      save.unlockedShips.OMEGA = !!(save.modeCleared.MYTHIC100 || save.promoAllUnlocked);
+
+      if (!DIFFICULTIES[save.selectedDiff]) {
+        save.selectedDiff = 'NORMAL';
+      }
+      if (!save.unlockedShips[save.selectedShip]) {
+        save.selectedShip = 'A';
+      }
+      // ボスラッシュモードでは TYPE-1(A) または解放済みの TYPE-3(OMEGA) のみ使用可能（TYPE-2は標準機Aに自動切替）
+      if (save.selectedDiff === 'BOSSRUSH' && save.selectedShip === 'B') {
+        save.selectedShip = 'A';
+      }
+    }
+
+    function showToast(msg) {
+      const b = document.getElementById('toastBanner');
+      if (!b) return;
+      b.textContent = msg;
+      b.classList.remove('hidden');
+      clearTimeout(showToast._tid);
+      showToast._tid = setTimeout(() => b.classList.add('hidden'), 2600);
+    }
+
+    function saveGame(toastMsg) {
+      evaluateShipUnlocks();
+      const json = JSON.stringify(save);
+      try { localStorage.setItem(SAVE_KEY, json); } catch (e) {}
+      try { window.name = json; } catch (e) {}
+      const badge = document.getElementById('saveIndicatorBadge');
+      if (badge) {
+        const now = new Date();
+        badge.textContent = `💾 SAVED ${now.toTimeString().slice(0, 8)}`;
+      }
+      if (toastMsg) showToast(toastMsg);
+    }
+
+    function loadSaveData() {
+      let raw = null;
+      try { raw = localStorage.getItem(SAVE_KEY); } catch (e) {}
+      if (!raw && window.name && window.name.startsWith('{')) raw = window.name;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          const def = createDefaultSave();
+          save = Object.assign({}, def, parsed);
+          save.unlockedShips = Object.assign({}, def.unlockedShips, parsed.unlockedShips || {});
+          save.modeCleared = Object.assign({}, def.modeCleared, parsed.modeCleared || {});
+          save.secretBossCleared = Object.assign({}, def.secretBossCleared, parsed.secretBossCleared || {});
+          save.shop = Object.assign({}, def.shop, parsed.shop || {});
+          save.inventory = Object.assign({}, def.inventory, parsed.inventory || {});
+          save.codexKills = Object.assign({}, parsed.codexKills || {});
+          save.highScores = Object.assign({}, def.highScores, parsed.highScores || {});
+          save.savedRuns = Object.assign({}, def.savedRuns, parsed.savedRuns || {});
+        } catch (e) {
+          save = createDefaultSave();
+        }
+      }
+      evaluateShipUnlocks();
+    }
+
+    // ==================== 6. Web Audio API シンセBGM＆効果音 ====================
+    let audioCtx = null;
+    let bgmStep = 0;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+    }
+
+    function playSE(type) {
+      if (!save.seOn) return;
+      ensureAudio();
+      if (!audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        if (type === 'shot') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(110, now + 0.11);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.11);
+          osc.start(now); osc.stop(now + 0.11);
+        } else if (type === 'just') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(660, now);
+          osc.frequency.exponentialRampToValueAtTime(1320, now + 0.16);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.16);
+          osc.start(now); osc.stop(now + 0.16);
+        } else if (type === 'hit') {
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.exponentialRampToValueAtTime(55, now + 0.08);
+          gain.gain.setValueAtTime(0.10, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.08);
+          osc.start(now); osc.stop(now + 0.08);
+        } else if (type === 'kill') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.exponentialRampToValueAtTime(45, now + 0.18);
+          gain.gain.setValueAtTime(0.16, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.18);
+          osc.start(now); osc.stop(now + 0.18);
+        } else if (type === 'item') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587, now);
+          osc.frequency.setValueAtTime(880, now + 0.06);
+          gain.gain.setValueAtTime(0.14, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.18);
+          osc.start(now); osc.stop(now + 0.18);
+        } else if (type === 'od') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.35);
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.35);
+          osc.start(now); osc.stop(now + 0.35);
+        }
+      } catch (e) {}
+    }
+
+    setInterval(() => {
+      if (!save.bgmOn || !audioCtx || audioCtx.state !== 'running') return;
+      const isMovie = !document.getElementById('movieModal').classList.contains('hidden');
+      if (!game.running && !isMovie) return;
+      try {
+        const now = audioCtx.currentTime;
+        const notes = game.diffId === 'BOSSRUSH'
+          ? [130.8, 164.8, 196, 246.9, 261.6, 246.9, 196, 164.8]
+          : game.bossActive
+            ? [110, 130.8, 146.8, 155.6, 146.8, 130.8, 110, 98]
+            : isMovie
+              ? [220, 261.6, 329.6, 392, 329.6, 261.6, 293.7, 349.2]
+              : [146.8, 174.6, 220, 261.6, 220, 174.6, 164.8, 196];
+        const freq = notes[bgmStep % notes.length];
+        bgmStep++;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = game.bossActive || game.diffId === 'BOSSRUSH' ? 'sawtooth' : 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.035, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      } catch (e) {}
+    }, 185);
+
+    // ==================== 7. 総合ステータス計算（ボスラッシュ時は恒久強化＆装備を無効化） ====================
+    function calcTotalStats(shipId = save.selectedShip, runMods = null, forDiff = save.selectedDiff) {
+      // ボスラッシュ時は TYPE-1(A) または解放済みの TYPE-3(OMEGA) のみ許可
+      let actualShipId = shipId;
+      if (forDiff === 'BOSSRUSH' && actualShipId === 'B') {
+        actualShipId = 'A';
+      }
+      const ship = SHIPS[actualShipId] || SHIPS.A;
+      const rm = runMods || (game && game.runMods) || { atkMul: 0, wayAdd: 0, pierceAdd: 0, bounceAdd: 0, homingAdd: 0, vampAdd: 0, shockLv: 0, hpAdd: 0 };
+      const isBossRush = forDiff === 'BOSSRUSH';
+
+      // ボスラッシュ時はショップ強化とガチャモジュールを0として計算（純粋な機体基礎性能＋そのランのWAVE強化カードのみ）
+      let atkMul = 1 + (isBossRush ? 0 : (save.shop.atk || 0) * 0.10) + (rm.atkMul || 0);
+      let hpAdd = (isBossRush ? 0 : (save.shop.hp || 0) * 20) + (rm.hpAdd || 0);
+      let smashMul = 1 + (isBossRush ? 0 : (save.shop.smash || 0) * 0.15);
+      let coinMul = 1 + (isBossRush ? 0 : (save.shop.coin || 0) * 0.15);
+      if (save.modeCleared.BOSSRUSH) coinMul *= 2.0; // ボスラッシュ制覇特典：コイン永久2倍
+
+      let wayAdd = rm.wayAdd || 0;
+      let pierce = ship.pierce + (rm.pierceAdd || 0);
+      let bounce = ship.bounce + (rm.bounceAdd || 0);
+      let crit = ship.crit;
+      let dmgRed = ship.dmgRed;
+      let vamp = (actualShipId === 'OMEGA' ? 7 : 0) + (rm.vampAdd || 0);
+      let backstab = ship.backstab;
+      let coolBonus = 0;
+      let spMul = actualShipId === 'OMEGA' ? 2.0 : 1.0;
+      let homing = (actualShipId === 'OMEGA' ? 4 : 0) + (rm.homingAdd || 0);
+
+      if (!isBossRush) {
+        (save.equipped || []).forEach(mId => {
+          const m = GACHA_POOL.find(x => x.id === mId);
+          if (!m) return;
+          const lv = Math.max(1, save.inventory[mId] || 1);
+          const lvBoost = 1 + (lv - 1) * 0.15;
+          if (m.atkMul) atkMul += m.atkMul * lvBoost;
+          if (m.hpAdd) hpAdd += Math.round(m.hpAdd * lvBoost);
+          if (m.smashMul) smashMul += m.smashMul * lvBoost;
+          if (m.critAdd) crit += m.critAdd;
+          if (m.dmgRed) dmgRed += m.dmgRed;
+          if (m.pierceAdd) pierce += m.pierceAdd;
+          if (m.bounceAdd) bounce += m.bounceAdd;
+          if (m.wayAdd) wayAdd += m.wayAdd;
+          if (m.vampAdd) vamp += m.vampAdd;
+          if (m.backAdd) backstab += m.backAdd;
+          if (m.coolBonus) coolBonus += m.coolBonus;
+          if (m.spMul) spMul += m.spMul;
+        });
+      }
+
+      return {
+        ship,
+        atk: Math.round(ship.atk * atkMul),
+        ways: ship.ways + wayAdd,
+        maxHp: ship.hp + hpAdd,
+        smash: Math.round(ship.smash * smashMul),
+        dmgRed: Math.min(0.75, dmgRed),
+        pierce,
+        bounce,
+        crit: Math.min(0.95, crit),
+        backstab,
+        vamp,
+        homing,
+        coolBonus: Math.min(0.7, coolBonus),
+        coinMul,
+        spMul,
+        shockLv: rm.shockLv || 0
+      };
+    }
+
+    // ==================== 8. 機体・通常敵・逃亡サプライボックス・全12体ボス描画エンジン ====================
+    function drawShipCharacter(ctx, x, y, r, shipId, angle, isSecret = false, tick = 0) {
+      ctx.save();
+      ctx.translate(x, y);
+
+      // ボスラッシュ制覇特典：黄金＆虹色覇者オーラ
+      if (!isSecret && save.modeCleared && save.modeCleared.BOSSRUSH && save.championAuraOn) {
+        const hue = (tick * 4) % 360;
+        ctx.strokeStyle = `hsl(${hue}, 95%, 65%)`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.45 + Math.sin(tick * 0.15) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.rotate(angle);
+      if (isSecret) {
+        ctx.fillStyle = '#0f172a';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(r * 1.2, 0);
+        ctx.lineTo(-r * 0.9, -r * 0.95);
+        ctx.lineTo(-r * 0.5, 0);
+        ctx.lineTo(-r * 0.9, r * 0.95);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.rotate(-angle);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 12px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🔒?', 0, 4);
+        ctx.restore();
+        return;
+      }
+
+      if (shipId === 'A') {
+        ctx.fillStyle = '#0284c7';
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.2, 0); ctx.lineTo(-r * 1.1, -r * 1.15); ctx.lineTo(r * 0.3, -r * 0.5); ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.2, 0); ctx.lineTo(-r * 1.1, r * 1.15); ctx.lineTo(r * 0.3, r * 0.5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.72, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(r * 0.15, -r * 0.45, r * 0.45, r * 0.9);
+      } else if (shipId === 'B') {
+        const wave = Math.sin(tick * 0.2) * 4;
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(-r * 0.6, 0); ctx.quadraticCurveTo(-r * 1.3, wave, -r * 1.7, -wave); ctx.stroke();
+        ctx.fillStyle = '#b45309';
+        ctx.fillRect(-r * 0.8, -r * 1.05, r * 1.2, r * 2.1);
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath(); ctx.moveTo(r * 0.4, -r * 1.05); ctx.lineTo(r * 1.3, -r * 0.75); ctx.lineTo(r * 0.4, -r * 0.5); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(r * 0.4, r * 1.05); ctx.lineTo(r * 1.3, r * 0.75); ctx.lineTo(r * 0.4, r * 0.5); ctx.fill();
+        ctx.fillStyle = '#fde047';
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.strokeStyle = '#e879f9';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(0, 0, r * 1.25, 0, Math.PI * 2); ctx.stroke();
+        for (let i = -1; i <= 1; i++) {
+          ctx.fillStyle = i === 0 ? '#f0abfc' : '#38bdf8';
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(-r * 1.2, i * r * 0.9 - r * 0.4);
+          ctx.lineTo(-r * 0.6, i * r * 1.1);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawEnemyCharacter(ctx, e, isSecret = false, tick = 0) {
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      const r = e.r || 18;
+      if (isSecret) {
+        ctx.fillStyle = '#090d16';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 11px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('❓', 0, 4);
+        ctx.restore();
+        return;
+      }
+
+      // ボス戦専用の逃亡サプライボックス描画
+      if (e.isLootBox) {
+        const pulse = Math.sin(tick * 0.25) * 2;
+        ctx.fillStyle = '#facc15';
+        ctx.strokeStyle = '#fef08a';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(-r - pulse, -r - pulse, (r + pulse) * 2, (r + pulse) * 2, 6);
+        } else {
+          ctx.rect(-r - pulse, -r - pulse, (r + pulse) * 2, (r + pulse) * 2);
+        }
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#090d16';
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🎁', 0, 4);
+        ctx.fillStyle = '#fde047';
+        ctx.font = 'bold 9px Orbitron, sans-serif';
+        ctx.fillText(`ESCAPING ${Math.ceil((e.escapeTimer || 0) / 60)}s`, 0, -r - 6);
+        ctx.restore();
+        return;
+      }
+
+      if (e.type === 'AEGIS' && e.facing !== undefined) {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, r + 5, e.facing - 1.1, e.facing + 1.1);
+        ctx.stroke();
+      }
+      if (e.type === 'GOLEM' && e.spiking) {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + tick * 0.08;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+          ctx.lineTo(Math.cos(a) * (r + 9), Math.sin(a) * (r + 9));
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = e.color || '#fb7185';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (e.type === 'BAT') {
+        const flap = Math.sin(tick * 0.3) * 5;
+        ctx.moveTo(-r * 1.3, -flap); ctx.lineTo(0, -r * 0.6); ctx.lineTo(r * 1.3, -flap);
+        ctx.lineTo(0, r * 0.8); ctx.closePath();
+      } else if (e.type === 'CARRIER') {
+        ctx.rect(-r, -r * 0.65, r * 2, r * 1.3);
+      } else {
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath(); ctx.arc(-r * 0.3, -r * 0.15, r * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(r * 0.3, -r * 0.15, r * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawBossCharacter(ctx, b, isSecret = false, tick = 0) {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      const r = b.r || 42;
+      if (isSecret) {
+        ctx.fillStyle = '#090d16';
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.85, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 11px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🔒SECRET', 0, 4);
+        ctx.restore();
+        return;
+      }
+
+      const col = b.color || '#ef4444';
+      const arch = b.arch || 'DEMON';
+
+      // 重力ブラックホール吸引リング演出（BR_4 & BR_5）
+      if (b.gravityActive) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.55)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 8]);
+        const pullR = r * 2.4 - ((tick * 3) % (r * 1.4));
+        ctx.beginPath();
+        ctx.arc(0, 0, Math.max(r * 0.8, pullR), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // ボスラッシュ特殊ギミック演出（回転極太ビーム＆ツインレーザー照射）
+      if (b.beamState === 'charge' || b.beamState === 'fire') {
+        const offsets = (b.arch === 'BR_OMEGA' || b.phase2) ? [-0.24, 0.24] : [0];
+        offsets.forEach(off => {
+          const ang = (b.beamAngle || 0) + off;
+          if (b.beamState === 'charge') {
+            ctx.save();
+            ctx.strokeStyle = (tick % 4 < 2) ? '#ef4444' : '#fde047';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 6]);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(ang) * 950, Math.sin(ang) * 950);
+            ctx.stroke();
+            ctx.restore();
+          } else if (b.beamState === 'fire') {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(244, 63, 94, 0.5)';
+            ctx.lineWidth = 46;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(ang) * 950, Math.sin(ang) * 950);
+            ctx.stroke();
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 18;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(ang) * 950, Math.sin(ang) * 950);
+            ctx.stroke();
+            ctx.restore();
+          }
+        });
+      }
+
+      // 無敵バリア演出
+      if (b.invulnState) {
+        ctx.strokeStyle = '#fde047';
+        ctx.fillStyle = 'rgba(250, 204, 21, 0.18)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.45, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // 正面完全無効シールド演出（SERAPH または BR_SHIELD）
+      if ((arch === 'SERAPH' || arch === 'BR_SHIELD') && b.facing !== undefined) {
+        ctx.strokeStyle = arch === 'BR_SHIELD' ? '#fde047' : '#38bdf8';
+        ctx.lineWidth = arch === 'BR_SHIELD' ? 8 : 5;
+        ctx.beginPath();
+        ctx.arc(0, 0, r + 12, b.facing - 1.25, b.facing + 1.25);
+        ctx.stroke();
+
+        // 背後の弱点マーカー（BACKSTAB ZONE）を視覚的にわかりやすく表示
+        const backAng = b.facing + Math.PI;
+        const bx = Math.cos(backAng) * (r + 18);
+        const by = Math.sin(backAng) * (r + 18);
+        ctx.fillStyle = '#4ade80';
+        ctx.beginPath();
+        ctx.arc(bx, by, 5 + Math.sin(tick * 0.25) * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 外周オーラリング
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.15 + Math.sin(tick * 0.1) * 3, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // アーキタイプ別造形
+      if (arch === 'DEMON') {
+        ctx.fillStyle = '#450a0a';
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-r * 1.5, -r * 0.9); ctx.lineTo(-r * 1.1, r * 0.6); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(r * 1.5, -r * 0.9); ctx.lineTo(r * 1.1, r * 0.6); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#facc15'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(-r * 0.5, -r * 0.6); ctx.lineTo(-r * 0.95, -r * 1.35); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(r * 0.5, -r * 0.6); ctx.lineTo(r * 0.95, -r * 1.35); ctx.stroke();
+      } else if (arch === 'ARACHNE') {
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 3.5;
+        for (let s = -1; s <= 1; s += 2) {
+          for (let i = 0; i < 4; i++) {
+            const a = (i - 1.5) * 0.42 + Math.sin(tick * 0.12 + i) * 0.1;
+            ctx.beginPath();
+            ctx.moveTo(s * r * 0.5, 0);
+            ctx.lineTo(s * r * 1.25, Math.sin(a) * r * 1.1);
+            ctx.lineTo(s * r * 1.55, Math.sin(a) * r * 1.45 + r * 0.25);
+            ctx.stroke();
+          }
+        }
+      } else if (arch === 'LEVIATHAN') {
+        for (let i = 4; i >= 1; i--) {
+          const ox = Math.sin(tick * 0.08 + i * 0.9) * (i * 8);
+          const oy = -i * (r * 0.32);
+          ctx.fillStyle = col;
+          ctx.beginPath(); ctx.arc(ox, oy, r * (0.75 - i * 0.1), 0, Math.PI * 2); ctx.fill();
+        }
+      } else if (arch === 'SERAPH' || arch === 'BR_SHIELD') {
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + tick * 0.03;
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(a) * r * 1.55, Math.sin(a) * r * 1.55);
+          ctx.lineTo(Math.cos(a + 0.25) * r * 1.1, Math.sin(a + 0.25) * r * 1.1);
+          ctx.closePath();
+          ctx.fill();
+        }
+      } else if (arch === 'SKELETON') {
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.7, -r * 0.7); ctx.lineTo(-r * 0.4, -r * 1.3); ctx.lineTo(0, -r * 0.9); ctx.lineTo(r * 0.4, -r * 1.3); ctx.lineTo(r * 0.7, -r * 0.7);
+        ctx.closePath(); ctx.fill();
+      } else if (arch === 'FORTRESS' || arch === 'BR_BEAM') {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 4;
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 - tick * 0.04;
+          ctx.strokeRect(Math.cos(a) * r * 1.15 - 6, Math.sin(a) * r * 1.15 - 6, 12, 12);
+        }
+      } else if (arch === 'BR_CLONE') {
+        ctx.strokeStyle = '#e879f9';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 3; i++) {
+          const a = (i / 3) * Math.PI * 2 + tick * 0.06;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.9, r * 0.45, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (arch === 'BR_GIANT') {
+        ctx.fillStyle = '#ea580c';
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * Math.PI * 2 + tick * 0.04;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7);
+          ctx.lineTo(Math.cos(a + 0.15) * r * 1.35, Math.sin(a + 0.15) * r * 1.35);
+          ctx.lineTo(Math.cos(a + 0.3) * r * 0.7, Math.sin(a + 0.3) * r * 0.7);
+          ctx.fill();
+        }
+      } else if (arch === 'DESTROYER' || arch === 'BR_OMEGA') {
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, 0, r * 1.4, 0, Math.PI * 2); ctx.stroke();
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + tick * 0.05;
+          ctx.fillStyle = i % 2 === 0 ? '#f43f5e' : '#38bdf8';
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(a) * r * 1.6, Math.sin(a) * r * 1.6);
+          ctx.lineTo(Math.cos(a + 0.2) * r * 1.1, Math.sin(a + 0.2) * r * 1.1);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      // コアボディ
+      ctx.fillStyle = b.isClone ? 'rgba(192, 132, 252, 0.55)' : col;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 邪眼
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath(); ctx.arc(-r * 0.28, -r * 0.15, r * 0.18, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(r * 0.28, -r * 0.15, r * 0.18, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(-r * 0.35, r * 0.18, r * 0.7, r * 0.22);
+      ctx.restore();
+    }
+
+    // ==================== 9. ゲーム状態・バトルループ ====================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const game = {
+      running: false,
+      paused: false,
+      waveCleared: false,
+      tick: 0,
+      wave: 1,
+      score: 0,
+      diffId: 'NORMAL',
+      bossActive: false,
+      killsThisWave: 0,
+      waveTargetKills: 10,
+      spawnTimer: 0,
+      bossSupportTimer: 180,
+      lootBoxTimer: 260,
+      runMods: { atkMul: 0, wayAdd: 0, pierceAdd: 0, bounceAdd: 0, homingAdd: 0, vampAdd: 0, shockLv: 0, hpAdd: 0, cardsCount: 0, cardCounts: {} },
+      player: {
+        x: 200, y: 300, vx: 0, vy: 0, r: 16, angle: -Math.PI / 2,
+        hp: 140, maxHp: 140, shield: 0, heat: 0, overheated: 0, sp: 0,
+        smashTimer: 0, wallBoostTimer: 0, invuln: 0, coolSkillCd: 0, revivedThisWave: false
+      },
+      drag: { active: false, sx: 0, sy: 0, cx: 0, cy: 0, charge: 0 },
+      bullets: [],
+      eBullets: [],
+      enemies: [],
+      items: [],
+      particles: [],
+      floats: [],
+      trapWalls: []
+    };
+
+    function resizeCanvas() {
+      const wrap = document.getElementById('canvasWrap');
+      if (!wrap) return;
+      canvas.width = Math.max(300, wrap.clientWidth);
+      canvas.height = Math.max(300, wrap.clientHeight);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function resetDragState() {
+      game.drag.active = false;
+      game.drag.charge = 0;
+      game.drag.holdTicks = 0;
+      game.drag.touchId = null;
+    }
+
+    function addFloatingText(x, y, text, color = '#38bdf8', size = 12) {
+      game.floats.push({ x, y, text, color, size, life: 42 });
+    }
+
+    function addExplosion(x, y, color, count = 14) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = 1.5 + Math.random() * 4.5;
+        game.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, color, life: 22 + Math.random() * 14 });
+      }
+    }
+
+    function setupWave(waveNum) {
+      game.wave = waveNum;
+      game.killsThisWave = 0;
+      game.waveCleared = false;
+      const diff = DIFFICULTIES[game.diffId] || DIFFICULTIES.NORMAL;
+      const baseTarget = 8 + Math.min(28, waveNum * 2);
+      game.waveTargetKills = Math.round(baseTarget * (diff.countMul || 1.0));
+      game.spawnTimer = 15;
+      game.bossSupportTimer = 340;
+      game.lootBoxTimer = 520;
+      game.bossActive = false;
+      game.enemies = [];
+      game.eBullets = [];
+      game.player.revivedThisWave = false;
+      resetDragState();
+
+      // 電磁トラップ壁生成（WAVE 2以降）
+      game.trapWalls = [];
+      if (waveNum >= 2) {
+        const extraTraps = game.diffId === 'NORMAL' ? 0 : game.diffId === 'HEARD' ? 1 : 2;
+        const count = Math.min(5, 1 + Math.floor(waveNum / 6) + extraTraps);
+        for (let i = 0; i < count; i++) {
+          const side = i % 2 === 0 ? 'left' : 'right';
+          game.trapWalls.push({ side, y: 70 + ((i * 115 + waveNum * 35) % Math.max(120, canvas.height - 200)), len: 85 });
+        }
+      }
+
+      // ボスラッシュは全WAVE（1〜5）がボス戦、他モードは5の倍数WAVEがボス戦
+      if (game.diffId === 'BOSSRUSH' || waveNum % 5 === 0) {
+        spawnBossForWave(waveNum);
+      }
+      updateHudUI();
+    }
+
+    // モード別のボス割り当てロジック
+    function getBossSpecForWave(diffId, waveNum) {
+      if (diffId === 'BOSSRUSH') {
+        const brKey = `BR_${Math.min(5, Math.max(1, waveNum))}`;
+        return { ...BOSS_CATALOG[brKey], isAwakened: false, isSecretBoss: false };
+      }
+      if (waveNum === 5)  return { ...BOSS_CATALOG.BOSS_W5,  isAwakened: false, isSecretBoss: false };
+      if (waveNum === 10) return { ...BOSS_CATALOG.BOSS_W10, isAwakened: false, isSecretBoss: false };
+      if (waveNum === 15) return { ...BOSS_CATALOG.BOSS_W15, isAwakened: false, isSecretBoss: false };
+      if (waveNum === 20) return { ...BOSS_CATALOG.BOSS_W20, isAwakened: false, isSecretBoss: false };
+      if (waveNum === 25) return { ...BOSS_CATALOG.BOSS_M25, isAwakened: false, isSecretBoss: false };
+      if (waveNum === 50) return { ...BOSS_CATALOG.BOSS_M50, isAwakened: false, isSecretBoss: true };
+      if (waveNum === 100) return { ...BOSS_CATALOG.BOSS_M100, isAwakened: false, isSecretBoss: true };
+
+      // MYTHIC WAVE 30〜95（50除く）は5体のメインボスが覚醒個体としてランダム出現
+      const pool = ['BOSS_W5', 'BOSS_W10', 'BOSS_W15', 'BOSS_W20', 'BOSS_M25'];
+      const pickKey = pool[Math.floor(Math.random() * pool.length)];
+      const base = BOSS_CATALOG[pickKey];
+      return {
+        ...base,
+        name: `🔥【覚醒】${base.name}`,
+        isAwakened: true,
+        isSecretBoss: false
+      };
+    }
+
+    function spawnBossForWave(waveNum) {
+      const diff = DIFFICULTIES[game.diffId] || DIFFICULTIES.NORMAL;
+      const spec = getBossSpecForWave(game.diffId, waveNum);
+
+      let baseHp = (1100 + waveNum * 420) * diff.hpMul * (spec.isAwakened ? 1.5 : 1) * (spec.isSecretBoss ? 1.85 : 1);
+      if (game.diffId === 'BOSSRUSH') {
+        // ボスラッシュ高難度化：WAVE 1〜5で段階的にタフになるハードコアHP設計
+        baseHp = 3200 + (waveNum - 1) * 2200;
+      }
+
+      const capRatio = game.diffId === 'BOSSRUSH' ? 0.045 : game.diffId === 'NORMAL' ? 0.14 : game.diffId === 'HEARD' ? 0.085 : 0.065;
+      const baseVx = game.diffId === 'BOSSRUSH' ? 2.5 + waveNum * 0.3 : 2.0 * diff.spdMul;
+      const baseVy = 1.05 * diff.spdMul;
+      game.bossActive = true;
+      game.enemies.push({
+        isBoss: true,
+        id: spec.id,
+        name: spec.name,
+        arch: spec.arch,
+        color: spec.color,
+        gimmick: spec.gimmick || null,
+        x: canvas.width / 2,
+        y: 100,
+        vx: baseVx,
+        vy: baseVy,
+        baseVx,
+        baseVy,
+        r: 42,
+        baseR: 42,
+        hp: Math.round(baseHp),
+        maxHp: Math.round(baseHp),
+        dmgCap: Math.round(baseHp * capRatio),
+        phase2: false,
+        shootTimer: 38,
+        specialTimer: 95,
+        gimmickTimer: 0,
+        cloneCd: 95,
+        teleportCd: 150,
+        dashCd: 130,
+        spiralCd: 12,
+        spiralAngle: 0,
+        gravityActive: false,
+        giantTriggered: false,
+        beamState: 'idle',
+        beamAngle: Math.PI / 2,
+        invulnState: false,
+        facing: Math.PI / 2
+      });
+
+      const wb = document.getElementById('warningBanner');
+      if (wb) {
+        document.getElementById('warningTitle').textContent = `⚠️ WARNING!! ${spec.name} ⚠️`;
+        document.getElementById('warningSub').textContent = spec.desc || '超大型エネルギー反応を検知！';
+        wb.classList.remove('hidden');
+        clearTimeout(spawnBossForWave._tid);
+        spawnBossForWave._tid = setTimeout(() => wb.classList.add('hidden'), 2800);
+      }
+    }
+
+    // ボス戦中に逃げ回る「📦逃亡サプライボックス」の出現（狙えば撃破でき、放置すると素早く逃げる絶妙バランス）
+    function spawnEscapingLootBox() {
+      const fromLeft = Math.random() < 0.5;
+      const boxHp = game.diffId === 'BOSSRUSH' ? 110 + game.wave * 30 : Math.round((60 + game.wave * 14) * (DIFFICULTIES[game.diffId].hpMul * 0.42));
+      const box = {
+        isBoss: false,
+        isLootBox: true,
+        type: 'LOOTBOX',
+        id: 'LOOTBOX',
+        name: '📦逃亡サプライボックス',
+        x: fromLeft ? 28 : canvas.width - 28,
+        y: 100 + Math.random() * Math.max(120, canvas.height * 0.35),
+        vx: (fromLeft ? 1 : -1) * 3.1,
+        vy: (Math.random() - 0.5) * 2.3,
+        r: 18,
+        color: '#facc15',
+        hp: boxHp,
+        maxHp: boxHp,
+        score: 500,
+        shootTimer: 9999,
+        escapeTimer: 360 // 約6秒で逃走する
+      };
+      game.enemies.push(box);
+      addFloatingText(box.x, box.y - 20, '🎁サプライボックス出現！逃走前に狙え！', '#fde047', 12);
+    }
+
+    // WAVEクリア時やボス撃破時にフィールド上の未回収アイテムを自動回収するヘルパー
+    function autoCollectRemainingItems() {
+      const p = game.player;
+      for (let i = game.items.length - 1; i >= 0; i--) {
+        const it = game.items[i];
+        if (it.type === 'HP') p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.22));
+        else if (it.type === 'COOL') { p.heat = 0; p.overheated = 0; p.sp = Math.min(100, p.sp + 20); }
+        else if (it.type === 'SHIELD') p.shield = Math.min(120, p.shield + 28);
+        else if (it.type === 'POWER') { p.shield = Math.min(120, p.shield + 25); p.sp = Math.min(100, p.sp + 30); p.heat = 0; }
+      }
+      game.items = [];
+    }
+
+    function spawnNormalEnemy(forceType = null) {
+      const diff = DIFFICULTIES[game.diffId] || DIFFICULTIES.NORMAL;
+      const keys = ['BAT', 'OCTO', 'GOLEM', 'GAZER', 'AEGIS', 'JELLY', 'SCORPION', 'WRAITH', 'PRIEST'];
+      const unlockStep = game.diffId === 'NORMAL' ? Math.floor(game.wave / 2) : game.wave;
+      const avail = keys.slice(0, Math.min(keys.length, 3 + unlockStep));
+      const carrierChance = game.diffId === 'NORMAL' ? 0.08 : 0.045;
+      const typeKey = forceType || (Math.random() < carrierChance ? 'CARRIER' : avail[Math.floor(Math.random() * avail.length)]);
+      const spec = ENEMY_TYPES[typeKey];
+      const mythicLateBoost = (game.diffId === 'MYTHIC' && game.wave >= 26) ? 1 + (game.wave - 25) * 0.025 : 1.0;
+      const mythicSpdBoost = (game.diffId === 'MYTHIC' && game.wave >= 26) ? Math.min(1.35, 1 + (game.wave - 25) * 0.006) : 1.0;
+      const waveHpFactor = game.diffId === 'NORMAL' ? 0.16 : 0.22;
+      const waveSpdFactor = game.diffId === 'NORMAL' ? 0.03 : 0.045;
+      const hpScale = (1 + (game.wave - 1) * waveHpFactor) * diff.hpMul * mythicLateBoost;
+      const spdScale = (1 + Math.min(1.2, (game.wave - 1) * waveSpdFactor)) * diff.spdMul * mythicSpdBoost;
+
+      const x = 35 + Math.random() * Math.max(80, canvas.width - 70);
+      const y = 40 + Math.random() * Math.min(140, canvas.height * 0.28);
+      const angle = Math.random() * Math.PI * 2;
+      const moveSpd = spec.spd * spdScale;
+      game.enemies.push({
+        isBoss: false,
+        type: typeKey,
+        id: typeKey,
+        name: spec.name,
+        x, y,
+        vx: Math.cos(angle) * moveSpd * 0.85,
+        vy: Math.sin(angle) * moveSpd * 0.85,
+        r: spec.r,
+        color: spec.color,
+        hp: Math.round(spec.hp * hpScale),
+        maxHp: Math.round(spec.hp * hpScale),
+        spd: moveSpd,
+        score: spec.score,
+        shootTimer: Math.max(16, Math.round((45 + Math.random() * 45) / ((diff.fireRateMul || 1) * mythicSpdBoost))),
+        facing: Math.PI / 2,
+        spiking: false
+      });
+    }
+
+    // ショット＆反動推進発射
+    function firePlayerShot() {
+      const p = game.player;
+      if (p.overheated > 0) {
+        addFloatingText(p.x, p.y - 20, 'OVERHEATED!', '#ef4444', 12);
+        return;
+      }
+
+      const st = calcTotalStats(save.selectedShip, game.runMods, game.diffId);
+      const dx = game.drag.cx - game.drag.sx;
+      const dy = game.drag.cy - game.drag.sy;
+      const dist = Math.hypot(dx, dy);
+      const chg = game.drag.charge;
+
+      let aimAngle = p.angle;
+      if (dist > 6) {
+        const rawAngle = Math.atan2(dy, dx);
+        aimAngle = save.aimMode === 'sling' ? rawAngle + Math.PI : rawAngle;
+      }
+      p.angle = aimAngle;
+
+      const justMin = st.ship.id === 'A' ? 0.70 : 0.75;
+      const isJust = chg >= justMin && chg <= 0.98;
+      const isTap = chg < 0.25;
+
+      // HEAT処理（TYPE-3 OMEGAは常時0%）
+      if (st.ship.id === 'OMEGA') {
+        p.heat = 0;
+      } else if (isJust) {
+        p.heat = Math.max(0, p.heat - 22);
+      } else if (isTap) {
+        p.heat += 24 * (1 - st.coolBonus);
+      } else {
+        p.heat += 10 * (1 - st.coolBonus);
+      }
+      if (p.heat >= 100) {
+        p.heat = 100;
+        p.overheated = 130;
+        addFloatingText(p.x, p.y - 24, '🔥OVERHEAT!', '#ef4444', 14);
+      }
+
+      // 反動推進
+      const recoilPower = st.ship.recoil * (isTap ? 0.45 : (0.65 + chg * 0.65));
+      p.vx = -Math.cos(aimAngle) * recoilPower;
+      p.vy = -Math.sin(aimAngle) * recoilPower;
+
+      if (!isTap) {
+        p.smashTimer = isJust ? 36 : 24;
+      }
+
+      // 弾の発射（ボスラッシュ覇者オーラON時は虹色弾）
+      const useRainbow = save.modeCleared.BOSSRUSH && save.championAuraOn;
+      const dmgMult = (isTap ? 0.45 : (0.75 + chg * 0.6)) * (isJust ? 1.6 : 1.0) * (p.wallBoostTimer > 0 ? 1.35 : 1.0);
+      const bulletDmg = Math.max(1, Math.round(st.atk * dmgMult));
+      const ways = st.ways;
+      const spread = Math.min(0.95, (ways - 1) * 0.13);
+
+      for (let i = 0; i < ways; i++) {
+        const offset = ways === 1 ? 0 : -spread / 2 + (spread / (ways - 1)) * i;
+        const a = aimAngle + offset;
+        const bColor = useRainbow ? `hsl(${(game.tick * 7 + i * 35) % 360}, 95%, 65%)` : (isJust ? '#fde047' : st.ship.color);
+        game.bullets.push({
+          x: p.x + Math.cos(a) * 16,
+          y: p.y + Math.sin(a) * 16,
+          vx: Math.cos(a) * 11.5,
+          vy: Math.sin(a) * 11.5,
+          r: isJust ? 6 : 4.5,
+          dmg: bulletDmg,
+          pierce: st.pierce + (isJust ? 2 : 0),
+          bounce: st.bounce,
+          color: bColor,
+          homing: false
+        });
+      }
+
+      // ホーミング追尾弾
+      for (let h = 0; h < st.homing; h++) {
+        const ha = aimAngle + (h % 2 === 0 ? 0.5 : -0.5) * (1 + h * 0.3);
+        game.bullets.push({
+          x: p.x, y: p.y,
+          vx: Math.cos(ha) * 8.5, vy: Math.sin(ha) * 8.5,
+          r: 5,
+          dmg: Math.round(bulletDmg * 0.75),
+          pierce: 1,
+          bounce: 0,
+          color: '#f472b6',
+          homing: true
+        });
+      }
+
+      if (isJust) {
+        playSE('just');
+        addFloatingText(p.x, p.y - 22, '⚡JUST CHARGE!!', '#fde047', 14);
+      } else {
+        playSE('shot');
+      }
+      updateHudUI();
+    }
+
+    // オーバードライブ必殺技発動
+    function triggerOverdrive() {
+      const p = game.player;
+      if (!game.running || game.paused || p.sp < 100) return;
+      p.sp = 0;
+      p.heat = 0;
+      p.overheated = 0;
+      p.invuln = 90;
+      p.smashTimer = 70;
+      game.eBullets = [];
+      playSE('od');
+
+      const st = calcTotalStats(save.selectedShip, game.runMods, game.diffId);
+      addFloatingText(p.x, p.y - 30, `⚡${st.ship.odName}!!`, '#fde047', 16);
+
+      const count = st.ship.id === 'OMEGA' ? 36 : 24;
+      for (let i = 0; i < count; i++) {
+        const a = (i / count) * Math.PI * 2;
+        game.bullets.push({
+          x: p.x, y: p.y,
+          vx: Math.cos(a) * 11, vy: Math.sin(a) * 11,
+          r: 7,
+          dmg: st.atk * 3,
+          pierce: 6,
+          bounce: 2,
+          color: '#fde047',
+          homing: st.ship.id === 'OMEGA'
+        });
+      }
+
+      if (st.ship.id === 'B' || st.ship.id === 'OMEGA') {
+        p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.25));
+      }
+      updateHudUI();
+    }
+
+    function damagePlayer(rawDmg) {
+      if (!game.running || game.paused || game.waveCleared) return;
+      const p = game.player;
+      if (p.invuln > 0 || p.smashTimer > 0) return;
+      const st = calcTotalStats(save.selectedShip, game.runMods, game.diffId);
+      const dmg = Math.max(1, Math.round(rawDmg * (1 - st.dmgRed)));
+      if (p.shield > 0) {
+        const absorb = Math.min(p.shield, dmg);
+        p.shield -= absorb;
+        const rem = dmg - absorb;
+        if (rem > 0) p.hp -= rem;
+      } else {
+        p.hp -= dmg;
+      }
+      p.invuln = 38;
+      playSE('hit');
+      addFloatingText(p.x, p.y - 16, `-${dmg}`, '#ef4444', 13);
+
+      if (p.hp <= 0) {
+        if (st.ship.id === 'OMEGA' && !p.revivedThisWave) {
+          p.revivedThisWave = true;
+          p.hp = Math.round(p.maxHp * 0.6);
+          p.invuln = 90;
+          game.eBullets = [];
+          addFloatingText(p.x, p.y - 25, '✨CHRONOS REVIVE!!', '#e879f9', 15);
+          updateHudUI();
+          return;
+        }
+        p.hp = 0;
+        onGameOver();
+      }
+      updateHudUI();
+    }
+
+    function onEnemyKilled(e) {
+      if (game.waveCleared) return;
+      const st = calcTotalStats(save.selectedShip, game.runMods, game.diffId);
+      const diff = DIFFICULTIES[game.diffId] || DIFFICULTIES.NORMAL;
+      addExplosion(e.x, e.y, e.color || '#fb7185', e.isBoss ? 36 : 16);
+      playSE('kill');
+
+      // 逃亡サプライボックスを撃破した場合のボーナス（出すぎないよう1個ドロップ＆ボスラッシュは厳選）
+      if (e.isLootBox) {
+        const dropType = Math.random() < 0.55 ? 'HP' : 'COOL';
+        game.items.push({ x: e.x, y: e.y, vx: 0, vy: -1.6, type: dropType, r: 14 });
+        const availCards = WAVE_CARDS.filter(c => getCardPickCount(c.id) < c.maxLv);
+        const cardChance = game.diffId === 'BOSSRUSH' ? 0.55 : 0.85;
+        if (availCards.length > 0 && Math.random() < cardChance) {
+          const pick = availCards[Math.floor(Math.random() * availCards.length)];
+          applyWaveCard(pick.id);
+          addFloatingText(e.x, e.y - 22, `🎁BOX BONUS: ${pick.name} UP!`, '#fde047', 13);
+        } else {
+          save.coins += 120;
+          game.player.sp = Math.min(100, game.player.sp + 25);
+          addFloatingText(e.x, e.y - 22, '🎁BOX BONUS: SP+25% & +120🪙!', '#fde047', 13);
+        }
+        updateHudUI();
+        return;
+      }
+
+      // 分身イリュージョン撃破時は本体ボスではないためカウントしない
+      if (e.isClone) {
+        addFloatingText(e.x, e.y - 10, 'MIRAGE DESTROYED!', '#c084fc', 11);
+        return;
+      }
+
+      // 図鑑撃破カウント更新（サプライボックス以外）
+      if (!e.isLootBox && e.id) {
+        save.codexKills[e.id] = (save.codexKills[e.id] || 0) + 1;
+      }
+
+      // スコア＆コイン獲得（ボスラッシュ制覇特典でスコアも2倍）
+      const champMul = save.modeCleared.BOSSRUSH ? 2.0 : 1.0;
+      const addScore = Math.round((e.isBoss ? 3500 : (e.score || 150)) * diff.coinMul * champMul);
+      const addCoin = Math.max(1, Math.round((e.isBoss ? 90 : 7) * diff.coinMul * st.coinMul));
+      game.score += addScore;
+      save.coins += addCoin;
+
+      // 吸血＆SP上昇
+      if (st.vamp > 0) {
+        game.player.hp = Math.min(game.player.maxHp, game.player.hp + st.vamp);
+      }
+      game.player.sp = Math.min(100, game.player.sp + (e.isBoss ? 50 : 7) * st.spMul);
+
+      // ドロップアイテム（ボスラッシュ中はさらに厳選して実力勝負を強調）
+      const itemDropChance = game.diffId === 'BOSSRUSH' ? 0.05 : game.diffId === 'NORMAL' ? 0.14 : 0.08;
+      if (e.type === 'CARRIER' || e.isBoss || Math.random() < itemDropChance) {
+        const types = ['HP', 'COOL', 'SHIELD', 'MAGNET'];
+        const pick = e.type === 'CARRIER' ? (Math.random() < 0.6 ? 'HP' : 'SHIELD') : types[Math.floor(Math.random() * types.length)];
+        game.items.push({ x: e.x, y: e.y, vx: (Math.random() - 0.5) * 2, vy: -1.5, type: pick, r: 13 });
+      }
+
+      if (e.isBoss) {
+        game.waveCleared = true;
+        save.gems += 15;
+        game.bossActive = false;
+        game.enemies = [];
+        game.eBullets = [];
+        autoCollectRemainingItems();
+        resetDragState();
+
+        // 1) NORMAL WAVE 10 完全クリア
+        if (game.diffId === 'NORMAL' && game.wave === 10) {
+          game.paused = true;
+          game.bullets = [];
+          if (!save.modeCleared.NORMAL) {
+            save.modeCleared.NORMAL = true;
+            save.gems += 40;
+            save.coins += 500;
+          }
+          save.savedRuns.NORMAL = null;
+          evaluateShipUnlocks();
+          checkAchievements();
+          saveGame('🎉 NORMAL 全10 WAVE 完全制覇！');
+          openMovieModal('ED_NORMAL', 'FINAL_COMPLETE', false);
+          return;
+        }
+
+        // 2) HEARD WAVE 20 完全クリア（2機目 TYPE-2 解放）
+        if (game.diffId === 'HEARD' && game.wave === 20) {
+          game.paused = true;
+          game.bullets = [];
+          if (!save.modeCleared.HEARD) {
+            save.modeCleared.HEARD = true;
+            save.gems += 80;
+          }
+          save.savedRuns.HEARD = null;
+          evaluateShipUnlocks();
+          checkAchievements();
+          saveGame('🎉 HEARD 全20 WAVE 完全制覇！『TYPE-2』解放！');
+          openMovieModal('ED_HEARD', 'FINAL_COMPLETE', false);
+          return;
+        }
+
+        // 3) MYTHIC WAVE 25 中間ボス撃破（ムービー後に続けるか選択可能）
+        if (game.diffId === 'MYTHIC' && game.wave === 25) {
+          game.paused = true;
+          game.bullets = [];
+          if (!save.modeCleared.MYTHIC25) {
+            save.modeCleared.MYTHIC25 = true;
+            save.gems += 100;
+          }
+          checkAchievements();
+          saveCurrentRunToSlot(26);
+          saveGame('🎉 MYTHIC WAVE 25 突破！');
+          openMovieModal('ED_MYTHIC25', 'CONTINUE_CHOICE', false);
+          return;
+        }
+
+        // 4) MYTHIC WAVE 50 第1隠しボス撃破
+        if (game.diffId === 'MYTHIC' && game.wave === 50) {
+          save.secretBossCleared.w50 = true;
+          save.gems += 80;
+          showToast('★ MYTHIC WAVE 50 隠しボス撃破！ (+80💎)');
+        }
+
+        // 5) MYTHIC WAVE 100 完全クリア（最強の3機目 TYPE-3 解放）
+        if (game.diffId === 'MYTHIC' && game.wave === 100) {
+          game.paused = true;
+          game.bullets = [];
+          save.secretBossCleared.w100 = true;
+          if (!save.modeCleared.MYTHIC100) {
+            save.modeCleared.MYTHIC100 = true;
+            save.gems += 300;
+          }
+          save.savedRuns.MYTHIC = null;
+          evaluateShipUnlocks();
+          checkAchievements();
+          saveGame('🌌 MYTHIC 全100 WAVE 完全制覇！最強機『TYPE-3』解放！');
+          openMovieModal('ED_MYTHIC100', 'FINAL_COMPLETE', false);
+          return;
+        }
+
+        // 6) BOSS RUSH WAVE 5 完全制覇（4大特典授与）
+        if (game.diffId === 'BOSSRUSH' && game.wave === 5) {
+          game.paused = true;
+          game.bullets = [];
+          if (!save.modeCleared.BOSSRUSH) {
+            save.modeCleared.BOSSRUSH = true;
+            save.gems += 300;
+            save.coins += 5000;
+          }
+          save.inventory.M_CHAMP = Math.max(1, (save.inventory.M_CHAMP || 0) + 1);
+          save.savedRuns.BOSSRUSH = null;
+          evaluateShipUnlocks();
+          checkAchievements();
+          saveGame('👑 BOSS RUSH 完全制覇！4大特典＆限定LR『覇王の極光冠』獲得！');
+          openMovieModal('ED_BOSSRUSH', 'FINAL_COMPLETE', false);
+          return;
+        }
+
+        checkAchievements();
+        openWaveUpgradeModal();
+        return;
+      }
+
+      game.killsThisWave++;
+      if (!game.bossActive && game.killsThisWave >= game.waveTargetKills) {
+        game.waveCleared = true;
+        game.enemies = [];
+        game.eBullets = [];
+        autoCollectRemainingItems();
+        checkAchievements();
+        openWaveUpgradeModal();
+      }
+    }
+
+    function updateGame() {
+      game.tick++;
+      const slow = game.drag.active ? 0.55 : 1.0;
+      const p = game.player;
+      const st = calcTotalStats(save.selectedShip, game.runMods, game.diffId);
+
+      if (game.drag.active) {
+        const chgSpd = st.ship.id === 'A' ? 0.028 : 0.024;
+        game.drag.charge = Math.min(1.0, game.drag.charge + chgSpd);
+        const dx = game.drag.cx - game.drag.sx;
+        const dy = game.drag.cy - game.drag.sy;
+        if (Math.hypot(dx, dy) > 6) {
+          const raw = Math.atan2(dy, dx);
+          p.angle = save.aimMode === 'sling' ? raw + Math.PI : raw;
+        }
+      }
+
+      // プレイヤー移動＆壁バウンド（反動ダッシュがより伸びやかに動くよう調整）
+      p.x += p.vx * slow;
+      p.y += p.vy * slow;
+      p.vx *= Math.pow(0.974, slow);
+      p.vy *= Math.pow(0.974, slow);
+
+      let bounced = false;
+      if (p.x < p.r) { p.x = p.r; p.vx = Math.abs(p.vx) * 0.9; bounced = true; }
+      if (p.x > canvas.width - p.r) { p.x = canvas.width - p.r; p.vx = -Math.abs(p.vx) * 0.9; bounced = true; }
+      if (p.y < p.r) { p.y = p.r; p.vy = Math.abs(p.vy) * 0.9; bounced = true; }
+      if (p.y > canvas.height - p.r) { p.y = canvas.height - p.r; p.vy = -Math.abs(p.vy) * 0.9; bounced = true; }
+
+      if (bounced) {
+        p.wallBoostTimer = 95;
+        for (const tw of game.trapWalls) {
+          const hitLeft = tw.side === 'left' && p.x <= p.r + 6 && p.y >= tw.y && p.y <= tw.y + tw.len;
+          const hitRight = tw.side === 'right' && p.x >= canvas.width - p.r - 6 && p.y >= tw.y && p.y <= tw.y + tw.len;
+          if (hitLeft || hitRight) {
+            damagePlayer(14);
+          }
+        }
+        if (st.shockLv > 0) {
+          for (let i = 0; i < 10; i++) {
+            const a = (i / 10) * Math.PI * 2;
+            game.bullets.push({
+              x: p.x, y: p.y, vx: Math.cos(a) * 8, vy: Math.sin(a) * 8,
+              r: 4, dmg: Math.round(st.atk * 0.65 * st.shockLv), pierce: 1, bounce: 0, color: '#38bdf8', homing: false
+            });
+          }
+        }
+      }
+
+      // タイマー減衰
+      if (p.smashTimer > 0) p.smashTimer -= slow;
+      if (p.wallBoostTimer > 0) p.wallBoostTimer -= slow;
+      if (p.invuln > 0) p.invuln -= slow;
+      if (p.coolSkillCd > 0) p.coolSkillCd = Math.max(0, p.coolSkillCd - 1);
+      if (p.overheated > 0) {
+        p.overheated -= 1;
+        p.heat = Math.max(0, (p.overheated / 130) * 100);
+      } else {
+        p.heat = Math.max(0, p.heat - (game.drag.active ? 0.08 : 0.32));
+      }
+      if (st.ship.id === 'OMEGA') {
+        p.heat = 0;
+        p.overheated = 0;
+      }
+
+      // 通常敵スポーン＆ボス戦中の逃亡サプライボックス出現
+      const diff = DIFFICULTIES[game.diffId] || DIFFICULTIES.NORMAL;
+      if (game.bossActive) {
+        // ボス戦中：逃亡サプライボックスの出現間隔を長めに設定し、アイテム過多を防止
+        game.lootBoxTimer -= slow;
+        const hasBox = game.enemies.some(e => e.isLootBox);
+        if (game.lootBoxTimer <= 0 && !hasBox) {
+          spawnEscapingLootBox();
+          game.lootBoxTimer = game.diffId === 'BOSSRUSH' ? 720 : 620;
+        }
+        // ボスラッシュ以外のモードでは小型随伴敵も少し出現
+        if (game.diffId !== 'BOSSRUSH') {
+          game.bossSupportTimer -= slow;
+          if (game.bossSupportTimer <= 0 && game.enemies.length < 3) {
+            spawnNormalEnemy(Math.random() < 0.25 ? 'CARRIER' : 'BAT');
+            game.bossSupportTimer = 380;
+          }
+        }
+      } else if (game.killsThisWave + game.enemies.length < game.waveTargetKills) {
+        game.spawnTimer -= slow * (diff.countMul || 1);
+        const maxSimul = diff.maxSimul || 8;
+        if (game.spawnTimer <= 0 && game.enemies.length < maxSimul) {
+          spawnNormalEnemy();
+          if (game.diffId !== 'NORMAL' && game.enemies.length < maxSimul && game.killsThisWave + game.enemies.length < game.waveTargetKills && Math.random() < 0.35) {
+            spawnNormalEnemy();
+          }
+          game.spawnTimer = Math.max(18, Math.round((56 - game.wave * 0.4) / (diff.countMul || 1)));
+        }
+      }
+
+      // 自機弾更新（スマート追尾ロックオン：サプライボックス ＞ 分身 ＞ 最も近い有効な敵）
+      for (let i = game.bullets.length - 1; i >= 0; i--) {
+        if (game.paused || game.waveCleared) break;
+        const b = game.bullets[i];
+        if (!b) continue;
+        if (b.homing && game.enemies.length > 0) {
+          let target = game.enemies.find(e => e.isLootBox) || game.enemies.find(e => e.isClone);
+          if (!target) {
+            let bestDist = Infinity;
+            for (const cand of game.enemies) {
+              if (cand.invulnState) continue;
+              const d = Math.hypot(cand.x - b.x, cand.y - b.y);
+              if (d < bestDist) { bestDist = d; target = cand; }
+            }
+          }
+          if (!target) target = game.enemies[0];
+          const ta = Math.atan2(target.y - b.y, target.x - b.x);
+          b.vx = b.vx * 0.88 + Math.cos(ta) * 1.55;
+          b.vy = b.vy * 0.88 + Math.sin(ta) * 1.55;
+        }
+        b.x += b.vx * slow;
+        b.y += b.vy * slow;
+
+        if (b.x < 0 || b.x > canvas.width) {
+          if (b.bounce > 0) { b.vx = -b.vx; b.bounce--; } else { game.bullets.splice(i, 1); continue; }
+        }
+        if (b.y < 0 || b.y > canvas.height) {
+          if (b.bounce > 0) { b.vy = -b.vy; b.bounce--; } else { game.bullets.splice(i, 1); continue; }
+        }
+
+        // 敵との当たり判定
+        for (let j = game.enemies.length - 1; j >= 0; j--) {
+          const e = game.enemies[j];
+          if (!e) continue;
+          if (Math.hypot(b.x - e.x, b.y - e.y) < b.r + e.r) {
+            // 無敵時間ギミック中のボスはダメージ無効
+            if (e.invulnState) {
+              addFloatingText(e.x, e.y - 14, '🛡️INVINCIBLE!', '#fde047', 11);
+              game.bullets.splice(i, 1);
+              break;
+            }
+
+            let dmg = b.dmg;
+            const isCrit = e.isLootBox || Math.random() < st.crit;
+            if (isCrit) dmg = Math.round(dmg * 1.75);
+
+            // 正面盾判定（BR_SHIELDボスは正面完全無効0ダメージ＋反撃カウンター弾発射！）
+            if (e.type === 'AEGIS' || e.arch === 'SERAPH' || e.gimmick === 'FRONT_IMMUNE') {
+              const hitAngle = Math.atan2(b.y - e.y, b.x - e.x);
+              const diffAngle = Math.abs(Math.atan2(Math.sin(hitAngle - e.facing), Math.cos(hitAngle - e.facing)));
+              if (diffAngle < 1.18) {
+                if (e.gimmick === 'FRONT_IMMUNE') {
+                  if (!e.counterCd || e.counterCd <= 0) {
+                    e.counterCd = 18;
+                    addFloatingText(e.x, e.y - 16, '⚡SHIELD COUNTER! 背後に回れ！', '#60a5fa', 11);
+                    const ca = Math.atan2(p.y - e.y, p.x - e.x) + (Math.random() - 0.5) * 0.2;
+                    game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(ca) * 7.2, vy: Math.sin(ca) * 7.2, r: 6.5, dmg: 24 });
+                  }
+                  game.bullets.splice(i, 1);
+                  break;
+                }
+                dmg = Math.max(1, Math.round(dmg * 0.35));
+              } else {
+                dmg = Math.round(dmg * st.backstab);
+                addFloatingText(e.x, e.y - 18, `🗡️BACKSTAB x${st.backstab}!`, '#fde047', 12);
+              }
+            }
+
+            if (e.isBoss && e.dmgCap) {
+              dmg = Math.min(dmg, e.dmgCap);
+            }
+            e.hp -= dmg;
+            if (e.isBoss && e.hp <= e.maxHp * 0.5) e.phase2 = true;
+            addFloatingText(e.x, e.y - 10, `${isCrit ? '💥' : ''}${dmg}`, isCrit ? '#fde047' : '#fff', isCrit ? 14 : 11);
+            playSE('hit');
+
+            if (e.hp <= 0) {
+              game.enemies.splice(j, 1);
+              onEnemyKilled(e);
+              if (game.waveCleared || game.paused) break;
+            }
+            if (b.pierce > 0) {
+              b.pierce--;
+            } else {
+              game.bullets.splice(i, 1);
+              break;
+            }
+          }
+        }
+      }
+
+      // エネミー＆ボス更新
+      for (let i = game.enemies.length - 1; i >= 0; i--) {
+        if (game.paused || game.waveCleared) break;
+        const e = game.enemies[i];
+        if (!e) continue;
+        if (e.counterCd && e.counterCd > 0) e.counterCd -= slow;
+
+        // 逃亡サプライボックスの移動＆逃走タイマー処理
+        if (e.isLootBox) {
+          e.x += e.vx * slow;
+          e.y += e.vy * slow;
+          if (e.x < e.r + 10 || e.x > canvas.width - e.r - 10) e.vx = -e.vx;
+          if (e.y < e.r + 20 || e.y > canvas.height * 0.65) e.vy = -e.vy;
+          e.escapeTimer -= slow;
+          if (e.escapeTimer <= 0) {
+            addFloatingText(e.x, e.y, '💨BOX ESCAPED...', '#94a3b8', 11);
+            game.enemies.splice(i, 1);
+          }
+          continue;
+        }
+
+        // ボスの突進後の速度減衰＆最低横移動速度の維持（突進後に暴走し続けたり横移動が0になるのを防ぐ）
+        if (e.isBoss && e.baseVx) {
+          const curVxAbs = Math.abs(e.vx);
+          const curVyAbs = Math.abs(e.vy);
+          if (curVxAbs > e.baseVx * 1.05) {
+            e.vx *= Math.pow(0.96, slow);
+          } else if (curVxAbs < e.baseVx * 0.75) {
+            e.vx = (e.vx >= 0 ? 1 : -1) * e.baseVx;
+          }
+          if (curVyAbs > e.baseVy * 1.05) {
+            e.vy *= Math.pow(0.96, slow);
+          } else if (curVyAbs < e.baseVy * 0.6) {
+            e.vy = (e.vy >= 0 ? 1 : -1) * e.baseVy;
+          }
+        }
+
+        // 通常敵・ボスの移動処理
+        e.x += e.vx * slow;
+        e.y += e.vy * slow;
+        const maxY = e.isBoss ? (e.gimmick === 'FRONT_IMMUNE' ? canvas.height * 0.55 : canvas.height * 0.45) : canvas.height - e.r;
+        const minY = e.isBoss && e.gimmick === 'FRONT_IMMUNE' ? 85 : e.r + 20;
+        if (e.x < e.r + 10) { e.x = e.r + 10; e.vx = Math.abs(e.vx); }
+        if (e.x > canvas.width - e.r - 10) { e.x = canvas.width - e.r - 10; e.vx = -Math.abs(e.vx); }
+        if (e.y < minY) { e.y = minY; e.vy = Math.abs(e.vy); }
+        if (e.y > maxY) { e.y = maxY; e.vy = -Math.abs(e.vy); }
+
+        // 正面盾持ちは旋回しつつ、背後に回り込める隙も作る
+        const targetFacing = Math.atan2(p.y - e.y, p.x - e.x);
+        if (e.gimmick === 'FRONT_IMMUNE') {
+          const dAng = Math.atan2(Math.sin(targetFacing - e.facing), Math.cos(targetFacing - e.facing));
+          e.facing += dAng * (e.phase2 ? 0.055 : 0.042) * slow;
+        } else {
+          e.facing = targetFacing;
+        }
+
+        // ボス別の固有特殊攻撃（物語ボス7体それぞれの個性的な必殺弾幕 ＆ ボスラッシュのノヴァリング）
+        if (e.isBoss) {
+          const mythicBossBoost = (game.diffId === 'MYTHIC' && game.wave >= 26) ? Math.min(1.4, 1 + (game.wave - 25) * 0.006) : 1.0;
+          e.specialTimer = (e.specialTimer === undefined ? 110 : e.specialTimer) - slow * (e.phase2 ? 1.35 : 1.0) * mythicBossBoost;
+          if (e.specialTimer <= 0) {
+            e.specialTimer = game.diffId === 'BOSSRUSH' ? 115 : 145;
+            const aimToP = Math.atan2(p.y - e.y, p.x - e.x);
+            const spd = (game.diffId === 'BOSSRUSH' ? 5.2 : 4.3) * (diff.bulletSpdMul || 1) * mythicBossBoost;
+
+            if (e.arch === 'DEMON') {
+              e.vx = Math.cos(aimToP) * 4.2;
+              e.vy = Math.sin(aimToP) * 3.0;
+              for (let arm = 0; arm < 4; arm++) {
+                const baseA = aimToP + (arm * Math.PI) / 2 + 0.35;
+                for (let s = 1; s <= 3; s++) {
+                  game.eBullets.push({
+                    x: e.x, y: e.y,
+                    vx: Math.cos(baseA) * (spd * 0.72 + s * 0.9),
+                    vy: Math.sin(baseA) * (spd * 0.72 + s * 0.9),
+                    r: 6.5, dmg: Math.round(17 * diff.atkMul)
+                  });
+                }
+              }
+              addFloatingText(e.x, e.y - 26, '🔥HELLFIRE CROSS!!', '#ef4444', 12);
+            } else if (e.arch === 'ARACHNE') {
+              const webCount = e.phase2 ? 11 : 9;
+              for (let k = 0; k < webCount; k++) {
+                const wa = aimToP + (k - (webCount - 1) / 2) * 0.21;
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(wa) * spd * 0.8, vy: Math.sin(wa) * spd * 0.8, r: 6, dmg: Math.round(16 * diff.atkMul) });
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(wa) * spd * 1.18, vy: Math.sin(wa) * spd * 1.18, r: 4.5, dmg: Math.round(14 * diff.atkMul) });
+              }
+              addFloatingText(e.x, e.y - 26, '🕸️SPIDER WEB NET!!', '#a855f7', 12);
+            } else if (e.arch === 'LEVIATHAN') {
+              e.vx = Math.cos(aimToP) * 5.6;
+              e.vy = Math.sin(aimToP) * 4.2;
+              for (let k = 0; k < 14; k++) {
+                const ta = (k / 14) * Math.PI * 2 + game.tick * 0.05;
+                const sMul = k % 2 === 0 ? 1.15 : 0.78;
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(ta) * spd * sMul, vy: Math.sin(ta) * spd * sMul, r: 6, dmg: Math.round(17 * diff.atkMul) });
+              }
+              addFloatingText(e.x, e.y - 26, '🌊TIDAL VORTEX DIVE!!', '#06b6d4', 12);
+            } else if (e.arch === 'SERAPH') {
+              for (let w = 0; w < 6; w++) {
+                const wa = aimToP + (w - 2.5) * 0.28;
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(wa) * spd * 1.3, vy: Math.sin(wa) * spd * 1.3, r: 6.5, dmg: Math.round(19 * diff.atkMul) });
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(wa) * spd * 0.92, vy: Math.sin(wa) * spd * 0.92, r: 5, dmg: Math.round(16 * diff.atkMul) });
+              }
+              addFloatingText(e.x, e.y - 26, '⚡JUDGMENT SPEAR!!', '#f59e0b', 12);
+            } else if (e.arch === 'SKELETON') {
+              for (let side = -1; side <= 1; side += 2) {
+                for (let k = -2; k <= 2; k++) {
+                  const sa = aimToP + side * 0.32 + k * 0.11;
+                  game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(sa) * (spd + Math.abs(k) * 0.45), vy: Math.sin(sa) * (spd + Math.abs(k) * 0.45), r: 6, dmg: Math.round(20 * diff.atkMul) });
+                }
+              }
+              if (game.enemies.length < 4) spawnNormalEnemy('WRAITH');
+              addFloatingText(e.x, e.y - 26, '💀DEATH SCYTHE SLASH!!', '#ec4899', 12);
+            } else if (e.arch === 'FORTRESS') {
+              for (let k = 0; k < 16; k++) {
+                const fa = (k / 16) * Math.PI * 2;
+                const fast = k % 2 === 0 ? 1.25 : 0.85;
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(fa) * spd * fast, vy: Math.sin(fa) * spd * fast, r: 6.5, dmg: Math.round(21 * diff.atkMul) });
+              }
+              addFloatingText(e.x, e.y - 26, '🛸ABYSS FORTRESS CANNON!!', '#14b8a6', 12);
+            } else if (e.arch === 'DESTROYER') {
+              for (let k = 0; k < 20; k++) {
+                const na = (k / 20) * Math.PI * 2 + game.tick * 0.04;
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(na) * spd * 1.15, vy: Math.sin(na) * spd * 1.15, r: 6.5, dmg: Math.round(23 * diff.atkMul) });
+              }
+              for (let s = -2; s <= 2; s++) {
+                const sa = aimToP + s * 0.14;
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(sa) * spd * 1.48, vy: Math.sin(sa) * spd * 1.48, r: 7, dmg: Math.round(25 * diff.atkMul) });
+              }
+              addFloatingText(e.x, e.y - 26, '🌌GENESIS ZERO NOVA!!', '#fde047', 13);
+            } else {
+              const ringCount = e.phase2 ? 18 : 14;
+              for (let k = 0; k < ringCount; k++) {
+                const ra = (k / ringCount) * Math.PI * 2 + (game.tick * 0.03);
+                game.eBullets.push({
+                  x: e.x, y: e.y,
+                  vx: Math.cos(ra) * spd, vy: Math.sin(ra) * spd,
+                  r: 5.5, dmg: Math.round(16 * diff.atkMul)
+                });
+              }
+              addFloatingText(e.x, e.y - 26, '💥NOVA RING BURST!!', e.color || '#f43f5e', 12);
+            }
+          }
+        }
+
+        // ボスラッシュ専用の凶悪特殊ギミック制御
+        if (e.isBoss && e.gimmick) {
+          e.gimmickTimer += slow;
+          const gt = e.gimmickTimer;
+
+          // ① 回転薙ぎ払い極太レーザー＆ツインレーザー（BR_1 ＆ BR_5）
+          if (e.gimmick === 'BEAM' || e.gimmick === 'INVULN_ALL') {
+            const cycle = gt % 220;
+            if (cycle < 105) {
+              e.beamState = 'idle';
+            } else if (cycle < 155) {
+              e.beamState = 'charge';
+              if (cycle < 138) e.beamAngle = Math.atan2(p.y - e.y, p.x - e.x);
+            } else {
+              e.beamState = 'fire';
+              // 照射中にプレイヤー方向へじわじわ回転して薙ぎ払う！
+              const targetA = Math.atan2(p.y - e.y, p.x - e.x);
+              const diffA = Math.atan2(Math.sin(targetA - e.beamAngle), Math.cos(targetA - e.beamAngle));
+              e.beamAngle += Math.sign(diffA) * Math.min(Math.abs(diffA), 0.014 * slow);
+
+              const offsets = (e.arch === 'BR_OMEGA' || e.phase2) ? [-0.24, 0.24] : [0];
+              offsets.forEach(off => {
+                const ang = e.beamAngle + off;
+                const dx = p.x - e.x;
+                const dy = p.y - e.y;
+                const proj = dx * Math.cos(ang) + dy * Math.sin(ang);
+                const perp = Math.abs(-dx * Math.sin(ang) + dy * Math.cos(ang));
+                if (proj > 0 && perp < p.r + 18) {
+                  damagePlayer(28);
+                }
+              });
+            }
+          }
+
+          // ② 瞬間移動ワープ奇襲 ＆ 3体分身イリュージョン召喚（BR_2 ＆ BR_5）
+          if (e.gimmick === 'CLONE' || e.gimmick === 'INVULN_ALL') {
+            // ワープブリンク奇襲
+            e.teleportCd = (e.teleportCd === undefined ? 150 : e.teleportCd) - slow;
+            if (e.teleportCd <= 0) {
+              e.teleportCd = e.phase2 ? 135 : 175;
+              addExplosion(e.x, e.y, '#c084fc', 12);
+              e.x = 60 + Math.random() * Math.max(100, canvas.width - 120);
+              e.y = 70 + Math.random() * Math.min(180, canvas.height * 0.35);
+              addExplosion(e.x, e.y, '#e879f9', 16);
+              addFloatingText(e.x, e.y - 24, '⚡PHANTOM WARP!!', '#e879f9', 13);
+              // ワープ直後に狙い撃ちクロス弾幕
+              const wa = Math.atan2(p.y - e.y, p.x - e.x);
+              for (let k = -2; k <= 2; k++) {
+                const ba = wa + k * 0.16;
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(ba) * 6.8, vy: Math.sin(ba) * 6.8, r: 6, dmg: 24 });
+              }
+            }
+
+            // 分身召喚（最大3体、耐久＆弾幕強化）
+            e.cloneCd = (e.cloneCd === undefined ? 100 : e.cloneCd) - slow;
+            if (e.cloneCd <= 0) {
+              e.cloneCd = 230;
+              const clonesCount = game.enemies.filter(x => x.isClone).length;
+              if (clonesCount < 3) {
+                for (let c = -1; c <= 1; c += 2) {
+                  game.enemies.push({
+                    isBoss: false,
+                    isClone: true,
+                    type: 'CLONE',
+                    id: e.id,
+                    name: `${e.name} [幻影]`,
+                    arch: e.arch,
+                    color: '#e879f9',
+                    x: Math.max(40, Math.min(canvas.width - 40, e.x + c * 85)),
+                    y: Math.min(canvas.height * 0.5, e.y + 30),
+                    vx: c * 3.2,
+                    vy: 1.5,
+                    r: 26,
+                    hp: 280,
+                    maxHp: 280,
+                    shootTimer: 35,
+                    facing: e.facing
+                  });
+                }
+                addFloatingText(e.x, e.y - 28, '👥MIRAGE CLONE SUMMON!!', '#e879f9', 13);
+              }
+            }
+          }
+
+          // ③ シールドバッシュ超高速突進＆衝撃波（BR_3）
+          if (e.gimmick === 'FRONT_IMMUNE') {
+            e.dashCd = (e.dashCd === undefined ? 120 : e.dashCd) - slow;
+            if (e.dashCd <= 0) {
+              e.dashCd = e.phase2 ? 115 : 150;
+              const da = Math.atan2(p.y - e.y, p.x - e.x);
+              e.vx = Math.cos(da) * 7.2;
+              e.vy = Math.sin(da) * 5.5;
+              e.facing = da;
+              addFloatingText(e.x, e.y - 30, '🛡️SHIELD BASH RUSH!!', '#60a5fa', 14);
+              for (let k = -3; k <= 3; k++) {
+                const sa = da + k * 0.22;
+                game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(sa) * 6.2, vy: Math.sin(sa) * 6.2, r: 6, dmg: 25 });
+              }
+            }
+          }
+
+          // ④ 重力ブラックホール吸引 ＆ 急激巨大化メテオプレス（BR_4 ＆ BR_5）
+          if (e.gimmick === 'GIANT' || e.gimmick === 'INVULN_ALL') {
+            const gCycle = gt % 240;
+            if (gCycle > 115 && gCycle < 220) {
+              e.gravityActive = true;
+              // プレイヤーをボスへ引き寄せる重力吸引
+              const ga = Math.atan2(e.y - p.y, e.x - p.x);
+              const pullPower = e.gimmick === 'GIANT' ? 0.36 : 0.24;
+              p.vx += Math.cos(ga) * pullPower * slow;
+              p.vy += Math.sin(ga) * pullPower * slow;
+
+              if (e.gimmick === 'GIANT') {
+                e.r = e.baseR * 2.15;
+              }
+              if (!e.giantTriggered) {
+                e.giantTriggered = true;
+                const a = Math.atan2(p.y - e.y, p.x - e.x);
+                e.vx = Math.cos(a) * (e.gimmick === 'GIANT' ? 6.4 : 4.5);
+                e.vy = Math.sin(a) * (e.gimmick === 'GIANT' ? 5.2 : 3.8);
+                addFloatingText(e.x, e.y - 40, e.gimmick === 'GIANT' ? '🌋GRAVITY GIGANT PRESS!!' : '🌌GRAVITY FIELD!!', '#f97316', 15);
+                // 巨大化と同時に全方位メテオ弾をばら撒く
+                for (let m = 0; m < 12; m++) {
+                  const ma = (m / 12) * Math.PI * 2;
+                  game.eBullets.push({ x: e.x, y: e.y, vx: Math.cos(ma) * 5.5, vy: Math.sin(ma) * 5.5, r: 7.5, dmg: 28 });
+                }
+              }
+            } else {
+              e.gravityActive = false;
+              if (e.gimmick === 'GIANT') e.r = e.baseR;
+              e.giantTriggered = false;
+            }
+          }
+
+          // ⑤ 周期的無敵バリア展開 ＆ 渦巻きスパイラル弾幕（BR_5）
+          if (e.gimmick === 'INVULN_ALL') {
+            const iCycle = gt % 260;
+            e.invulnState = (iCycle > 185 && iCycle < 245);
+            // スローモーション中も発射間隔が狂わないクールダウン方式の渦巻きスパイラル弾幕
+            e.spiralCd = (e.spiralCd === undefined ? 12 : e.spiralCd) - slow;
+            if (e.spiralCd <= 0) {
+              e.spiralCd = e.phase2 ? 10 : 13;
+              e.spiralAngle = (e.spiralAngle || 0) + 0.38;
+              for (let s = 0; s < 3; s++) {
+                const sa = e.spiralAngle + (s * Math.PI * 2) / 3;
+                game.eBullets.push({
+                  x: e.x, y: e.y,
+                  vx: Math.cos(sa) * 5.4, vy: Math.sin(sa) * 5.4,
+                  r: 5.5, dmg: 25
+                });
+              }
+            }
+          }
+        }
+
+        if (e.type === 'GOLEM') {
+          e.spiking = (Math.floor(game.tick / 70) % 2) === 0;
+        }
+
+        if (e.type === 'PRIEST' && game.tick % 90 === 0) {
+          game.enemies.forEach(other => {
+            if (other !== e && !other.isBoss && !other.isLootBox && Math.hypot(other.x - e.x, other.y - e.y) < 150) {
+              other.hp = Math.min(other.maxHp, other.hp + Math.round(14 * diff.hpMul));
+            }
+          });
+        }
+
+        // 通常敵およびボスの基本射撃処理
+        e.shootTimer -= slow * (e.phase2 ? 1.35 : 1.0);
+        if (e.shootTimer <= 0) {
+          const baseInterval = e.isBoss ? (game.diffId === 'BOSSRUSH' ? 36 : 44) : 78;
+          e.shootTimer = Math.max(16, Math.round(baseInterval / (diff.fireRateMul || 1)));
+          const aim = Math.atan2(p.y - e.y, p.x - e.x);
+          const bSpd = (e.isBoss ? 5.0 : 4.2) * (diff.bulletSpdMul || 1);
+          if (e.isBoss) {
+            const count = e.phase2 ? 7 : 5;
+            for (let k = 0; k < count; k++) {
+              const a = aim + (k - Math.floor(count / 2)) * 0.22;
+              game.eBullets.push({
+                x: e.x, y: e.y,
+                vx: Math.cos(a) * bSpd, vy: Math.sin(a) * bSpd,
+                r: 6, dmg: Math.round(18 * diff.atkMul)
+              });
+            }
+          } else if (e.type !== 'BAT' && e.type !== 'CARRIER') {
+            const ways = (e.type === 'SCORPION' || e.isClone) ? 3 : 1;
+            for (let k = 0; k < ways; k++) {
+              const a = aim + (k - Math.floor(ways / 2)) * 0.25;
+              game.eBullets.push({
+                x: e.x, y: e.y,
+                vx: Math.cos(a) * bSpd, vy: Math.sin(a) * bSpd,
+                r: e.isClone ? 5.2 : 4.5, dmg: Math.round((e.isClone ? 15 : 12) * diff.atkMul)
+              });
+            }
+          }
+        }
+
+        // プレイヤーとの体当たり判定（正面盾・背面特効も反映）
+        if (Math.hypot(p.x - e.x, p.y - e.y) < p.r + e.r) {
+          if (p.smashTimer > 0) {
+            if (e.invulnState) {
+              p.vx = -p.vx * 0.8;
+              p.vy = -p.vy * 0.8;
+              p.invuln = Math.max(p.invuln, 18);
+              addFloatingText(e.x, e.y, '🛡️INVINCIBLE!', '#fde047', 12);
+            } else if (e.type === 'GOLEM' && e.spiking) {
+              p.smashTimer = 0;
+              damagePlayer(18);
+              addFloatingText(e.x, e.y, '💥SPIKE COUNTER!', '#ef4444', 13);
+            } else {
+              let sDmg = st.smash;
+              let blockedByShield = false;
+              if (e.type === 'AEGIS' || e.arch === 'SERAPH' || e.gimmick === 'FRONT_IMMUNE') {
+                const hitAngle = Math.atan2(p.y - e.y, p.x - e.x);
+                const diffAngle = Math.abs(Math.atan2(Math.sin(hitAngle - e.facing), Math.cos(hitAngle - e.facing)));
+                if (diffAngle < 1.18) {
+                  if (e.gimmick === 'FRONT_IMMUNE') {
+                    blockedByShield = true;
+                  } else {
+                    sDmg = Math.max(1, Math.round(sDmg * 0.4));
+                  }
+                } else {
+                  sDmg = Math.round(sDmg * st.backstab);
+                  addFloatingText(e.x, e.y - 26, `🗡️BACKSTAB SMASH x${st.backstab}!!`, '#fde047', 14);
+                }
+              }
+
+              if (blockedByShield) {
+                p.vx = -p.vx * 0.9;
+                p.vy = -p.vy * 0.9;
+                p.invuln = Math.max(p.invuln, 18);
+                addFloatingText(e.x, e.y - 16, '🛡️FRONT GUARD! 背後へ回れ！', '#60a5fa', 12);
+              } else {
+                if (e.isBoss && e.dmgCap) {
+                  sDmg = Math.min(sDmg, Math.round(e.dmgCap * 1.25));
+                }
+                e.hp -= sDmg;
+                p.vx = -p.vx * 0.75;
+                p.vy = -p.vy * 0.75;
+                p.invuln = Math.max(p.invuln, 20);
+                addFloatingText(e.x, e.y - 14, `💥SMASH ${sDmg}!`, '#f472b6', 14);
+                if (e.hp <= 0) {
+                  if (st.ship.id === 'B') p.hp = Math.min(p.maxHp, p.hp + 10);
+                  game.enemies.splice(i, 1);
+                  onEnemyKilled(e);
+                }
+              }
+            }
+          } else {
+            damagePlayer(Math.round(14 * diff.atkMul));
+          }
+        }
+      }
+
+      // 敵弾更新（TYPE-3 OMEGAは近距離減速）
+      for (let i = game.eBullets.length - 1; i >= 0; i--) {
+        const eb = game.eBullets[i];
+        const distToP = Math.hypot(eb.x - p.x, eb.y - p.y);
+        const omegaSlow = (st.ship.id === 'OMEGA' && distToP < 135) ? 0.45 : 1.0;
+        eb.x += eb.vx * slow * omegaSlow;
+        eb.y += eb.vy * slow * omegaSlow;
+
+        if (eb.x < -20 || eb.x > canvas.width + 20 || eb.y < -20 || eb.y > canvas.height + 20) {
+          game.eBullets.splice(i, 1);
+          continue;
+        }
+        if (distToP < eb.r + p.r) {
+          game.eBullets.splice(i, 1);
+          if (p.smashTimer > 0) {
+            addFloatingText(p.x, p.y - 12, 'PARRY!', '#38bdf8', 11);
+          } else {
+            damagePlayer(eb.dmg);
+          }
+        }
+      }
+
+      // アイテム更新
+      for (let i = game.items.length - 1; i >= 0; i--) {
+        const it = game.items[i];
+        const d = Math.hypot(p.x - it.x, p.y - it.y);
+        if (d < 135) {
+          it.x += (p.x - it.x) * 0.09;
+          it.y += (p.y - it.y) * 0.09;
+        } else {
+          it.x += it.vx * slow;
+          it.y += (it.vy + 0.8) * slow;
+        }
+        // アイテム更新（回復量を適正化して緊張感をアップ）
+        if (d < p.r + it.r + 6) {
+          playSE('item');
+          if (it.type === 'HP') {
+            p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * 0.22));
+            addFloatingText(p.x, p.y - 16, '💚HP +22%!', '#4ade80', 13);
+          } else if (it.type === 'COOL') {
+            p.heat = 0; p.overheated = 0; p.sp = Math.min(100, p.sp + 20);
+            addFloatingText(p.x, p.y - 16, '❄️COOL & SP+20%!', '#38bdf8', 13);
+          } else if (it.type === 'SHIELD') {
+            p.shield = Math.min(120, p.shield + 28);
+            addFloatingText(p.x, p.y - 16, '🛡️SHIELD +28!', '#22d3ee', 13);
+          } else if (it.type === 'POWER') {
+            p.shield = Math.min(120, p.shield + 25);
+            p.sp = Math.min(100, p.sp + 30);
+            p.heat = 0;
+            addFloatingText(p.x, p.y - 16, '⚡SHIELD+25 & SP+30%!', '#fde047', 13);
+          } else if (it.type === 'MAGNET') {
+            game.items.forEach(o => { o.x = p.x; o.y = p.y; });
+            const bonusCoin = Math.round(25 * (DIFFICULTIES[game.diffId].coinMul || 1) * st.coinMul);
+            save.coins += bonusCoin;
+            p.sp = Math.min(100, p.sp + 15);
+            addFloatingText(p.x, p.y - 16, `🧲MAGNET! +${bonusCoin}🪙 & SP+15%!`, '#facc15', 13);
+          }
+          game.items.splice(i, 1);
+        } else if (it.y > canvas.height + 30) {
+          game.items.splice(i, 1);
+        }
+      }
+
+      for (let i = game.particles.length - 1; i >= 0; i--) {
+        const pt = game.particles[i];
+        pt.x += pt.vx; pt.y += pt.vy; pt.life--;
+        if (pt.life <= 0) game.particles.splice(i, 1);
+      }
+      for (let i = game.floats.length - 1; i >= 0; i--) {
+        const fl = game.floats[i];
+        fl.y -= 0.7; fl.life--;
+        if (fl.life <= 0) game.floats.splice(i, 1);
+      }
+
+      if (game.tick % 6 === 0) updateHudUI();
+    }
+
+    // ==================== 10. バトル画面描画 ====================
+    function renderGame() {
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // サイバーグリッド背景
+      ctx.strokeStyle = game.diffId === 'BOSSRUSH' ? 'rgba(88, 28, 135, 0.45)' : 'rgba(30, 41, 59, 0.55)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 44) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 44) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+
+      // 電磁トラップ壁
+      game.trapWalls.forEach(tw => {
+        ctx.fillStyle = '#ef4444';
+        const wx = tw.side === 'left' ? 0 : canvas.width - 6;
+        ctx.fillRect(wx, tw.y, 6, tw.len);
+      });
+
+      const p = game.player;
+      const st = calcTotalStats(save.selectedShip, game.runMods, game.diffId);
+
+      // ドラッグ中の狙い線・多段階バウンド反動移動予測・バーチャルスリングパッド描画
+      if (game.drag.active) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+        ctx.setLineDash([6, 5]);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x + Math.cos(p.angle) * 240, p.y + Math.sin(p.angle) * 240);
+        ctx.stroke();
+
+        const recoilPower = st.ship.recoil * (0.65 + game.drag.charge * 0.65);
+        let simX = p.x;
+        let simY = p.y;
+        let simVx = -Math.cos(p.angle) * recoilPower;
+        let simVy = -Math.sin(p.angle) * recoilPower;
+
+        ctx.strokeStyle = 'rgba(74, 222, 128, 0.78)';
+        ctx.beginPath();
+        ctx.moveTo(simX, simY);
+        for (let step = 0; step < 26; step++) {
+          simX += simVx;
+          simY += simVy;
+          simVx *= 0.965;
+          simVy *= 0.965;
+          if (simX < p.r) { simX = p.r; simVx = Math.abs(simVx) * 0.9; }
+          if (simX > canvas.width - p.r) { simX = canvas.width - p.r; simVx = -Math.abs(simVx) * 0.9; }
+          if (simY < p.r) { simY = p.r; simVy = Math.abs(simVy) * 0.9; }
+          if (simY > canvas.height - p.r) { simY = canvas.height - p.r; simVy = -Math.abs(simVy) * 0.9; }
+          ctx.lineTo(simX, simY);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = 'rgba(74, 222, 128, 0.35)';
+        ctx.beginPath();
+        ctx.arc(simX, simY, p.r * 0.85, 0, Math.PI * 2);
+        ctx.fill();
+
+        const justMin = st.ship.id === 'A' ? 0.70 : 0.75;
+        const isJustCharge = game.drag.charge >= justMin && game.drag.charge <= 0.98;
+
+        ctx.strokeStyle = isJustCharge ? 'rgba(253, 224, 71, 0.85)' : 'rgba(34, 211, 238, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(game.drag.sx, game.drag.sy, 24, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(game.drag.sx, game.drag.sy);
+        ctx.lineTo(game.drag.cx, game.drag.cy);
+        ctx.stroke();
+
+        ctx.fillStyle = isJustCharge ? 'rgba(253, 224, 71, 0.9)' : 'rgba(34, 211, 238, 0.75)';
+        ctx.beginPath();
+        ctx.arc(game.drag.cx, game.drag.cy, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = isJustCharge ? '#fde047' : '#38bdf8';
+        ctx.font = 'bold 11px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(isJustCharge ? '⚡JUST READY!' : `CHARGE ${Math.floor(game.drag.charge * 100)}%`, game.drag.sx, Math.max(24, game.drag.sy - 32));
+        ctx.restore();
+      }
+
+      // ドロップアイテム描画
+      game.items.forEach(it => {
+        ctx.save();
+        ctx.translate(it.x, it.y);
+        ctx.fillStyle = it.type === 'HP' ? '#22c55e' : it.type === 'COOL' ? '#38bdf8' : it.type === 'SHIELD' ? '#a855f7' : '#eab308';
+        ctx.beginPath(); ctx.arc(0, 0, it.r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(it.type === 'HP' ? '💚' : it.type === 'COOL' ? '❄️' : it.type === 'SHIELD' ? '🛡️' : it.type === 'POWER' ? '⚡' : '🧲', 0, 4);
+        ctx.restore();
+      });
+
+      // エネミー＆ボス描画
+      game.enemies.forEach(e => {
+        if (e.isBoss || e.isClone) {
+          drawBossCharacter(ctx, e, false, game.tick);
+          if (e.isClone) {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(e.x - 18, e.y - e.r - 9, 36, 4);
+            ctx.fillStyle = '#e879f9';
+            ctx.fillRect(e.x - 18, e.y - e.r - 9, 36 * Math.max(0, e.hp / e.maxHp), 4);
+          }
+        } else {
+          drawEnemyCharacter(ctx, e, false, game.tick);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(e.x - 16, e.y - e.r - 9, 32, 4);
+          ctx.fillStyle = e.isLootBox ? '#facc15' : '#ef4444';
+          ctx.fillRect(e.x - 16, e.y - e.r - 9, 32 * Math.max(0, e.hp / e.maxHp), 4);
+        }
+      });
+
+      // 自機描画
+      ctx.save();
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r + 6, 0, Math.PI * 2);
+      ctx.stroke();
+
+      if (p.smashTimer > 0) {
+        ctx.strokeStyle = '#f472b6';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r + 12, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#4ade80';
+      ctx.font = 'bold 9px Orbitron, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('▼YOU', p.x, p.y - p.r - 10);
+      ctx.restore();
+
+      drawShipCharacter(ctx, p.x, p.y, p.r, st.ship.id, p.angle, false, game.tick);
+
+      // チャージゲージリング
+      if (game.drag.active) {
+        const justMin = st.ship.id === 'A' ? 0.70 : 0.75;
+        ctx.strokeStyle = game.drag.charge >= justMin && game.drag.charge <= 0.98 ? '#fde047' : '#38bdf8';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r + 15, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * game.drag.charge);
+        ctx.stroke();
+      }
+
+      // 自機弾
+      game.bullets.forEach(b => {
+        ctx.fillStyle = b.color;
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+      });
+
+      // 敵弾
+      game.eBullets.forEach(eb => {
+        ctx.fillStyle = '#ef4444';
+        ctx.strokeStyle = '#090d16';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(eb.x, eb.y, eb.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      });
+
+      // パーティクル＆フロートテキスト
+      game.particles.forEach(pt => {
+        ctx.fillStyle = pt.color;
+        ctx.fillRect(pt.x - 2, pt.y - 2, 4, 4);
+      });
+      game.floats.forEach(fl => {
+        ctx.fillStyle = fl.color;
+        ctx.font = `bold ${fl.size}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(fl.text, fl.x, fl.y);
+      });
+    }
+
+    // ==================== 11. 上下スリムHUD更新 ====================
+    function updateHudUI() {
+      const p = game.player;
+      const st = calcTotalStats(save.selectedShip, game.runMods, game.diffId);
+      const diff = DIFFICULTIES[game.diffId] || DIFFICULTIES.NORMAL;
+      p.maxHp = st.maxHp;
+
+      document.getElementById('hudDiffBadge').textContent = game.diffId;
+      document.getElementById('hudWaveNum').textContent = `${game.wave}/${diff.maxWave}`;
+      document.getElementById('hudWaveProgress').textContent = game.bossActive ? '(BOSS)' : `(${Math.min(game.killsThisWave, game.waveTargetKills)}/${game.waveTargetKills})`;
+      document.getElementById('hudScoreNum').textContent = game.score;
+      document.getElementById('hudCoinNum').textContent = save.coins;
+      document.getElementById('hudGemNum').textContent = save.gems;
+
+      const hpPct = Math.max(0, Math.min(100, (p.hp / p.maxHp) * 100));
+      document.getElementById('topHpBar').style.width = `${hpPct}%`;
+      document.getElementById('hudHpText').textContent = `${Math.ceil(p.hp)}/${p.maxHp}`;
+      document.getElementById('hudShieldText').textContent = p.shield > 0 ? `🛡️+${Math.ceil(p.shield)}` : '';
+
+      const heatPct = Math.floor(p.heat);
+      document.getElementById('topHeatBar').style.width = `${heatPct}%`;
+      document.getElementById('hudHeatText').textContent = p.overheated > 0 ? 'OVERHEAT' : `${heatPct}%`;
+
+      document.getElementById('hudCompactStatsLine').innerHTML = `
+        <span>⚔️ATK:<b class="text-cyan-300">${st.atk}</b></span>
+        <span>🔫<b class="text-cyan-300">${st.ways}WAY</b></span>
+        <span>💥体当:<b class="text-pink-300">${st.smash}</b></span>
+        <span>🛡️軽減:<b class="text-emerald-300">${Math.round(st.dmgRed * 100)}%</b></span>
+        <span>🗡️貫通:<b class="text-amber-300">${st.pierce}</b></span>
+        <span>🪞反射:<b class="text-cyan-200">${st.bounce}</b></span>
+        <span>🃏強化:<b class="text-purple-300">${game.runMods.cardsCount || 0}回</b></span>
+      `;
+      document.getElementById('hudShipSkillTag').textContent = `★${st.ship.skillName}`;
+
+      const drawer = document.getElementById('hudStatsDrawer');
+      if (drawer && !drawer.classList.contains('hidden')) {
+        drawer.innerHTML = `
+          <span class="px-1.5 py-0.5 bg-slate-800 rounded">🎯CRIT率: ${Math.round(st.crit * 100)}%</span>
+          <span class="px-1.5 py-0.5 bg-slate-800 rounded">🗡️背面倍率: x${st.backstab}</span>
+          <span class="px-1.5 py-0.5 bg-slate-800 rounded">🩸撃破吸収: +${st.vamp}HP</span>
+          <span class="px-1.5 py-0.5 bg-slate-800 rounded">🚀追尾弾: ${st.homing}発</span>
+          <span class="px-1.5 py-0.5 bg-slate-800 rounded text-amber-300">${st.ship.skillDesc}</span>
+        `;
+      }
+
+      // ボスHPバー＆特殊ギミック表示
+      const boss = game.enemies.find(x => x.isBoss);
+      const bossWrap = document.getElementById('hudBossBarWrap');
+      if (boss) {
+        bossWrap.classList.remove('hidden');
+        bossWrap.classList.add('flex');
+        document.getElementById('hudBossName').textContent = `👑 ${boss.name}`;
+        document.getElementById('hudBossHpText').textContent = `${Math.max(0, boss.hp)} / ${boss.maxHp}`;
+        document.getElementById('hudBossHpBar').style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`;
+
+        const gimTag = document.getElementById('hudBossGimmickTag');
+        if (boss.invulnState) {
+          gimTag.textContent = '🛡️無敵バリア展開中！';
+          gimTag.classList.remove('hidden');
+        } else if (boss.beamState === 'charge') {
+          gimTag.textContent = '⚠️回転極太ビーム照準中！回避せよ！';
+          gimTag.classList.remove('hidden');
+        } else if (boss.beamState === 'fire') {
+          gimTag.textContent = '🔥回転極太レーザー薙ぎ払い中！';
+          gimTag.classList.remove('hidden');
+        } else if (boss.gimmick === 'FRONT_IMMUNE') {
+          gimTag.textContent = '🛡️正面無効＆反撃盾（突進をかわし背後へ！）';
+          gimTag.classList.remove('hidden');
+        } else if (boss.gravityActive) {
+          gimTag.textContent = '🌌重力吸引＆巨大化メテオ突進中！';
+          gimTag.classList.remove('hidden');
+        } else {
+          gimTag.classList.add('hidden');
+        }
+      } else {
+        bossWrap.classList.add('hidden');
+        bossWrap.classList.remove('flex');
+      }
+
+      // SPバー＆OVERDRIVEボタン＆冷却ボタン
+      const spPct = Math.floor(Math.min(100, p.sp));
+      document.getElementById('topSpBar').style.width = `${spPct}%`;
+      document.getElementById('spPercent').textContent = `${spPct}%`;
+      const odBtn = document.getElementById('overdriveBtn');
+      document.getElementById('odBtnLabel').textContent = `⚡ ${st.ship.odName}`;
+      if (spPct >= 100) {
+        odBtn.disabled = false;
+        odBtn.className = 'overdrive-ready flex-1 py-2.5 px-3 rounded-xl border-2 border-amber-300 bg-gradient-to-r from-fuchsia-600 via-rose-500 to-amber-500 text-white font-cyber font-black text-[11px] sm:text-xs flex items-center justify-between shadow-lg active:scale-95';
+      } else {
+        odBtn.disabled = true;
+        odBtn.className = 'flex-1 py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900/95 text-slate-400 font-cyber font-black text-[11px] sm:text-xs flex items-center justify-between transition-all';
+      }
+
+      const coolState = document.getElementById('coolSkillState');
+      if (p.coolSkillCd <= 0) {
+        coolState.textContent = 'READY';
+        coolState.className = 'text-emerald-300';
+      } else {
+        coolState.textContent = `${Math.ceil(p.coolSkillCd / 60)}s`;
+        coolState.className = 'text-amber-300';
+      }
+    }
+
+    // ==================== 12. WAVE強化カード（上限厳格チェック＆全MAX時コイン/ダイヤ報酬フォールバック） ====================
+    function saveCurrentRunToSlot(waveToSave) {
+      const d = game.diffId;
+      save.savedRuns[d] = {
+        wave: waveToSave,
+        score: game.score,
+        hp: game.player.hp,
+        shield: game.player.shield,
+        sp: game.player.sp,
+        runMods: JSON.parse(JSON.stringify(game.runMods))
+      };
+      const hs = save.highScores[d] || { score: 0, wave: 1 };
+      if (game.score > hs.score) hs.score = game.score;
+      if (waveToSave > hs.wave) hs.wave = waveToSave;
+      save.highScores[d] = hs;
+      saveGame();
+    }
+
+    function getCardPickCount(cardId) {
+      const rm = game.runMods || {};
+      if (rm.cardCounts && rm.cardCounts[cardId] !== undefined) return rm.cardCounts[cardId];
+      if (cardId === 'atkUp') return Math.round((rm.atkMul || 0) / 0.15);
+      if (cardId === 'multi') return rm.wayAdd || 0;
+      if (cardId === 'pierce') return rm.pierceAdd || 0;
+      if (cardId === 'bounce') return rm.bounceAdd || 0;
+      if (cardId === 'homing') return rm.homingAdd || 0;
+      if (cardId === 'vamp') return Math.round((rm.vampAdd || 0) / 2);
+      if (cardId === 'shock') return rm.shockLv || 0;
+      if (cardId === 'shield') return Math.round((rm.hpAdd || 0) / 20);
+      return 0;
+    }
+
+    function openWaveUpgradeModal() {
+      resetDragState();
+
+      const totalCards = game.runMods.cardsCount || 0;
+      const summaryEl = document.getElementById('upgradeCountSummary');
+      if (summaryEl) {
+        const badgeHtml = WAVE_CARDS.map(c => {
+          const lv = getCardPickCount(c.id);
+          const isMax = lv >= c.maxLv;
+          return `<span class="px-1.5 py-0.5 rounded ${isMax ? 'bg-amber-500/20 border border-amber-400 text-amber-300 font-bold' : 'bg-slate-900 text-slate-300'}">${c.icon}${lv}/${c.maxLv}</span>`;
+        }).join('');
+        summaryEl.innerHTML = `
+          <div class="w-full flex flex-wrap items-center justify-center gap-1">
+            <span>🃏累計強化:<b class="text-amber-300">${totalCards}回</b></span>
+            ${badgeHtml}
+          </div>
+        `;
+      }
+
+      const grid = document.getElementById('upgradeCardsGrid');
+      grid.innerHTML = '';
+
+      // 上限（maxLv）にまだ達していないカードのみを抽出（上限に達したカードは絶対に出現させない）
+      const availableCards = WAVE_CARDS.filter(c => getCardPickCount(c.id) < c.maxLv);
+      const shuffledAvail = [...availableCards].sort(() => Math.random() - 0.5);
+
+      const choices = shuffledAvail.slice(0, 3);
+      // 選べる強化カードが3枚未満（または全強化がMAX）になった場合は、コインやダイヤを獲得できる報酬カードで埋める
+      let fbIdx = 0;
+      while (choices.length < 3) {
+        choices.push(FALLBACK_REWARD_CARDS[fbIdx % FALLBACK_REWARD_CARDS.length]);
+        fbIdx++;
+      }
+
+      choices.forEach(c => {
+        const pickedCount = c.isFallback ? 0 : getCardPickCount(c.id);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `p-2.5 sm:p-3 rounded-xl bg-slate-950 border-2 ${c.isFallback ? 'border-amber-400/80 hover:border-amber-300' : 'border-cyan-500/50 hover:border-cyan-300'} text-left flex flex-col justify-between gap-1.5 active:scale-95 transition-all`;
+        btn.innerHTML = `
+          <div>
+            <div class="flex justify-between items-center mb-0.5">
+              <span class="text-xl sm:text-2xl">${c.icon}</span>
+              <span class="px-2 py-0.5 rounded-full ${c.isFallback ? 'bg-amber-950 border-amber-400 text-amber-200' : 'bg-cyan-950 border-cyan-500/50 text-cyan-200'} border text-[10px] font-mono font-bold">
+                ${c.isFallback ? '🎁 BONUS REWARD' : `Lv.${pickedCount} → ${pickedCount + 1} (上限${c.maxLv})`}
+              </span>
+            </div>
+            <div class="font-bold text-xs sm:text-sm ${c.isFallback ? 'text-amber-300' : 'text-cyan-300'}">${c.name}</div>
+            <div class="text-[11px] sm:text-xs text-slate-300 mt-0.5">${c.desc}</div>
+          </div>
+          <div class="text-[10px] font-cyber text-amber-300 font-bold">TAP TO SELECT ▶</div>
+        `;
+        btn.onclick = () => {
+          applyWaveCard(c.id);
+          document.getElementById('upgradeModal').classList.add('hidden');
+          game.paused = false;
+          game.running = true;
+          setupWave(game.wave + 1);
+          saveCurrentRunToSlot(game.wave);
+        };
+        grid.appendChild(btn);
+      });
+      document.getElementById('upgradeModal').classList.remove('hidden');
+    }
+
+    function applyWaveCard(id) {
+      if (id === 'reward_coin') {
+        save.coins += 350;
+        playSE('item');
+        showToast('🪙 +350 コイン獲得！');
+        updateHudUI();
+        return;
+      }
+      if (id === 'reward_gem') {
+        save.gems += 15;
+        playSE('item');
+        showToast('💎 +15 ジェム獲得！');
+        updateHudUI();
+        return;
+      }
+      if (id === 'reward_heal') {
+        game.player.hp = game.player.maxHp;
+        game.player.shield = Math.min(150, game.player.shield + 50);
+        game.player.sp = 100;
+        playSE('item');
+        showToast('💖 HP完全回復 ＆ シールド+50 ＆ SP100%！');
+        updateHudUI();
+        return;
+      }
+
+      const cardSpec = WAVE_CARDS.find(x => x.id === id);
+      const currentLv = getCardPickCount(id);
+      // 万が一上限に達していた場合はコインボーナスに変換
+      if (cardSpec && currentLv >= cardSpec.maxLv) {
+        save.coins += 200;
+        updateHudUI();
+        return;
+      }
+
+      const rm = game.runMods;
+      rm.cardsCount = (rm.cardsCount || 0) + 1;
+      if (!rm.cardCounts) rm.cardCounts = {};
+      rm.cardCounts[id] = currentLv + 1;
+
+      if (id === 'atkUp') rm.atkMul += 0.15;
+      else if (id === 'multi') rm.wayAdd += 1;
+      else if (id === 'pierce') rm.pierceAdd += 1;
+      else if (id === 'bounce') rm.bounceAdd += 1;
+      else if (id === 'homing') rm.homingAdd += 1;
+      else if (id === 'vamp') { rm.vampAdd += 2; game.player.hp = Math.min(game.player.maxHp, game.player.hp + 25); }
+      else if (id === 'shock') rm.shockLv += 1;
+      else if (id === 'shield') { rm.hpAdd += 20; game.player.shield += 30; game.player.hp += 20; }
+      updateHudUI();
+    }
+
+    function startOrResumeGame(resumeFromSlot = false) {
+      ensureAudio();
+      evaluateShipUnlocks();
+      game.diffId = save.selectedDiff;
+      const slot = save.savedRuns[game.diffId];
+
+      if (resumeFromSlot && slot) {
+        game.runMods = Object.assign({ atkMul: 0, wayAdd: 0, pierceAdd: 0, bounceAdd: 0, homingAdd: 0, vampAdd: 0, shockLv: 0, hpAdd: 0, cardsCount: 0, cardCounts: {} }, slot.runMods || {});
+        const st = calcTotalStats(save.selectedShip, game.runMods, game.diffId);
+        game.score = slot.score || 0;
+        game.player.maxHp = st.maxHp;
+        game.player.hp = Math.min(st.maxHp, Math.max(Math.round(st.maxHp * 0.6), slot.hp || st.maxHp));
+        game.player.shield = slot.shield || 0;
+        game.player.sp = slot.sp || 0;
+        setupWave(slot.wave || 1);
+      } else {
+        game.runMods = { atkMul: 0, wayAdd: 0, pierceAdd: 0, bounceAdd: 0, homingAdd: 0, vampAdd: 0, shockLv: 0, hpAdd: 0, cardsCount: 0, cardCounts: {} };
+        const st = calcTotalStats(save.selectedShip, game.runMods, game.diffId);
+        game.score = 0;
+        game.player.maxHp = st.maxHp;
+        game.player.hp = st.maxHp;
+        game.player.shield = 0;
+        game.player.sp = 0;
+        setupWave(1);
+        saveCurrentRunToSlot(1);
+      }
+
+      document.getElementById('titleModal').classList.add('hidden');
+      document.getElementById('gameOverModal').classList.add('hidden');
+      document.getElementById('hudHeader').classList.remove('hidden');
+      document.getElementById('bottomBar').classList.remove('hidden');
+
+      resizeCanvas();
+      game.player.x = canvas.width / 2;
+      game.player.y = canvas.height * 0.75;
+      game.player.vx = 0;
+      game.player.vy = 0;
+      game.player.heat = 0;
+      game.player.overheated = 0;
+      game.bullets = [];
+      game.eBullets = [];
+      game.items = [];
+      game.running = true;
+      game.paused = false;
+      updateHudUI();
+    }
+
+    function onGameOver() {
+      game.running = false;
+      resetDragState();
+      saveCurrentRunToSlot(game.wave);
+      document.getElementById('gameOverSubText').textContent = `${game.diffId} - WAVE ${game.wave} で大破しました（進行状況は保存済み）`;
+      document.getElementById('goScore').textContent = game.score;
+      document.getElementById('goWave').textContent = game.wave;
+      document.getElementById('gameOverModal').classList.remove('hidden');
+    }
+
+    // ==================== 13. 実績判定＆ガチャ・基地UI描画 ====================
+    const ACHIEVEMENT_LIST = [
+      { id: 'A_N10', name: '蒼き前線突破',     desc: 'NORMAL (全10 WAVE) を完全クリア',                     gems: 40,  ap: 100, check: () => save.modeCleared.NORMAL },
+      { id: 'A_H20', name: '紅蓮の鬼神覚醒',   desc: 'HEARD (全20 WAVE) を完全クリア (2機目 TYPE-2 解放)',   gems: 80,  ap: 200, check: () => save.modeCleared.HEARD },
+      { id: 'A_M25', name: '終焉皇帝の討伐者', desc: 'MYTHIC WAVE 25 の固有ボスを撃破',                     gems: 100, ap: 250, check: () => save.modeCleared.MYTHIC25 },
+      { id: 'A_M50', name: '第1隠しボス討伐',  desc: 'MYTHIC WAVE 50 の隠しボスを撃破',                     gems: 150, ap: 300, check: () => save.secretBossCleared.w50 },
+      { id: 'A_100', name: '創世神話の覇者',   desc: 'MYTHIC (全100 WAVE) を完全クリア (最強機 TYPE-3 解放)',gems: 300, ap: 500, check: () => save.modeCleared.MYTHIC100 },
+      { id: 'A_BR5', name: '👑ゴッド・スレイヤー',desc: 'BOSS RUSH (全5連戦) を完全制覇 (4大特典解放)',     gems: 300, ap: 600, check: () => save.modeCleared.BOSSRUSH }
+    ];
+
+    function checkAchievements() {
+      let changed = false;
+      ACHIEVEMENT_LIST.forEach(a => {
+        if (!save.achievements[a.id] && a.check()) {
+          save.achievements[a.id] = true;
+          save.gems += a.gems;
+          save.ap += a.ap;
+          changed = true;
+          showToast(`🏆 実績達成『${a.name}』💎+${a.gems}`);
+        }
+      });
+      if (changed) saveGame();
+    }
+
+    function rollGacha(count, isGem) {
+      const cost = isGem ? (count === 10 ? 90 : 10) : (count === 10 ? 900 : 100);
+      if (isGem && save.gems < cost) { showToast('❌ ジェムが足りません'); return; }
+      if (!isGem && save.coins < cost) { showToast('❌ コインが足りません'); return; }
+      if (isGem) save.gems -= cost; else save.coins -= cost;
+
+      const results = [];
+      for (let i = 0; i < count; i++) {
+        const r = Math.random() * 100;
+        let targetRarity = 'N';
+        if (isGem) {
+          if (i === 9 && count === 10) targetRarity = r < 25 ? 'LR' : r < 60 ? 'UR' : 'SSR';
+          else if (r < 8) targetRarity = 'LR';
+          else if (r < 24) targetRarity = 'UR';
+          else if (r < 55) targetRarity = 'SSR';
+          else targetRarity = 'SR';
+        } else {
+          if (r < 3) targetRarity = 'UR';
+          else if (r < 12) targetRarity = 'SSR';
+          else if (r < 32) targetRarity = 'SR';
+          else if (r < 65) targetRarity = 'R';
+          else targetRarity = 'N';
+        }
+        const pool = GACHA_POOL.filter(x => x.rarity === targetRarity && !x.specialOnly);
+        const pick = pool[Math.floor(Math.random() * pool.length)] || GACHA_POOL[0];
+        save.inventory[pick.id] = (save.inventory[pick.id] || 0) + 1;
+        results.push(pick);
+      }
+
+      playSE('item');
+      saveGame('🎰 ガチャ開発完了！');
+      const resArea = document.getElementById('gachaResultArea');
+      const resGrid = document.getElementById('gachaResultGrid');
+      resGrid.innerHTML = '';
+      results.forEach(m => {
+        const d = document.createElement('div');
+        d.className = 'p-2 rounded-lg bg-slate-900 border border-slate-700 text-center text-[11px]';
+        d.innerHTML = `<div class="font-cyber font-black text-amber-300">[${m.rarity}]</div><div class="font-bold text-white">${m.name}</div><div class="text-[10px] text-emerald-300">+Lv.${save.inventory[m.id]}</div>`;
+        resGrid.appendChild(d);
+      });
+      resArea.classList.remove('hidden');
+      renderBaseUI();
+    }
+
+    let currentCodexFilter = 'ALL';
+
+    function renderBaseUI() {
+      evaluateShipUnlocks();
+      document.getElementById('baseCoins').textContent = save.coins;
+      document.getElementById('baseGems').textContent = save.gems;
+      document.getElementById('baseAp').textContent = save.ap;
+
+      // ボスラッシュ制覇特典：覇者オーラON/OFFボタン
+      const auraBtn = document.getElementById('champAuraToggleBtn');
+      if (save.modeCleared.BOSSRUSH) {
+        auraBtn.classList.remove('hidden');
+        auraBtn.textContent = `👑 覇者オーラ(虹弾&コイン2倍): ${save.championAuraOn ? 'ON' : 'OFF'}`;
+      } else {
+        auraBtn.classList.add('hidden');
+      }
+
+      const aimTxt = save.aimMode === 'sling' ? '🏹 スリング(引っ張り)' : '🎯 標準エイム';
+      document.getElementById('aimModeToggleBtn').textContent = `操作モード: ${aimTxt}`;
+      document.getElementById('hudAimModeBtn').textContent = aimTxt;
+      document.getElementById('titleBgmBtn').textContent = `🎵 BGM: ${save.bgmOn ? 'ON' : 'OFF'}`;
+      document.getElementById('titleSeBtn').textContent = `🔊 SE: ${save.seOn ? 'ON' : 'OFF'}`;
+      document.getElementById('hudBgmBtn').textContent = save.bgmOn ? '🎵' : '🔇';
+      document.getElementById('hudSeBtn').textContent = save.seOn ? '🔊' : '🔈';
+
+      // 1) 4モードセレクト描画
+      const diffGrid = document.getElementById('diffSelectGrid');
+      diffGrid.innerHTML = '';
+      Object.values(DIFFICULTIES).forEach(d => {
+        const active = save.selectedDiff === d.id;
+        const savedRun = save.savedRuns[d.id];
+        const cleared = d.id === 'MYTHIC' ? save.modeCleared.MYTHIC100 : save.modeCleared[d.id];
+        const subCleared = d.id === 'MYTHIC' && save.modeCleared.MYTHIC25 && !save.modeCleared.MYTHIC100;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `p-2.5 rounded-xl border text-left transition-all ${active ? 'tab-active border-2' : 'bg-slate-900/90 border-slate-700'}`;
+        btn.innerHTML = `
+          <div class="flex justify-between items-center">
+            <span class="font-cyber font-black text-xs sm:text-sm" style="color:${d.color}">${d.name}</span>
+            <span class="text-[10px] text-amber-300 font-bold">${d.stars}</span>
+          </div>
+          <div class="text-[10px] text-slate-200 font-mono mt-0.5">全 ${d.maxWave} WAVE</div>
+          <div class="text-[10px] text-slate-300 mt-0.5">${savedRun ? `<b class="text-emerald-300">💾 WAVE ${savedRun.wave} 保存中</b>` : '新規 WAVE 1〜'}</div>
+          <div class="text-[9px] mt-0.5 ${cleared ? 'text-amber-300 font-bold' : subCleared ? 'text-cyan-300 font-bold' : 'text-slate-400'}">
+            ${cleared ? '👑 完全制覇済！' : subCleared ? '🎬 W25突破済 (W100目標)' : d.id === 'HEARD' ? '制覇で2機目解放' : d.id === 'MYTHIC' ? 'W100制覇で3機目解放' : d.id === 'BOSSRUSH' ? '制覇で4大特典解放' : '基本10Wモード'}
+          </div>
+        `;
+        btn.onclick = () => {
+          save.selectedDiff = d.id;
+          evaluateShipUnlocks();
+          saveGame();
+          renderBaseUI();
+        };
+        diffGrid.appendChild(btn);
+      });
+
+      const curDiff = DIFFICULTIES[save.selectedDiff] || DIFFICULTIES.NORMAL;
+      document.getElementById('selectedDiffInfo').textContent = curDiff.desc;
+
+      // ボスラッシュ案内バナー表示切替
+      const brBanner = document.getElementById('bossRushNoticeBanner');
+      if (save.selectedDiff === 'BOSSRUSH') {
+        brBanner.classList.remove('hidden');
+      } else {
+        brBanner.classList.add('hidden');
+      }
+
+      // 中断セーブ再開パネル表示
+      const curSlot = save.savedRuns[save.selectedDiff];
+      const resumePanel = document.getElementById('savedRunResumePanel');
+      if (curSlot && curSlot.wave >= 1 && curSlot.wave <= curDiff.maxWave && (curSlot.wave > 1 || curSlot.score > 0 || (curSlot.runMods && curSlot.runMods.cardsCount > 0))) {
+        resumePanel.classList.remove('hidden');
+        const curShipName = SHIPS[save.selectedShip].name;
+        document.getElementById('savedRunResumeTitle').textContent = `💾 [${save.selectedDiff}] WAVE ${curSlot.wave}/${curDiff.maxWave} のセーブデータあり (SCORE: ${curSlot.score})`;
+        document.getElementById('savedRunResumeSub').textContent = `現在選択中の機体【${curShipName}】でWAVE ${curSlot.wave}から再開できます！`;
+        document.getElementById('continueBtn').textContent = `🔄 【${curShipName}】で WAVE ${curSlot.wave} から再開`;
+      } else {
+        resumePanel.classList.add('hidden');
+      }
+
+      // 2) 機体セレクト描画（全3機・未解放は黒塗りシークレット表示）
+      document.getElementById('sortieEquippedSummary').textContent = save.selectedDiff === 'BOSSRUSH'
+        ? '⚔️ BOSS RUSH: 恒久強化＆モジュール無効（標準スペック勝負）'
+        : `装備モジュール: ${(save.equipped || []).length}/3枠`;
+
+      const shipGrid = document.getElementById('shipSelectGrid');
+      shipGrid.innerHTML = '';
+      Object.values(SHIPS).forEach(s => {
+        const unlocked = !!save.unlockedShips[s.id];
+        const restrictedInRush = save.selectedDiff === 'BOSSRUSH' && s.id === 'B';
+        const selected = save.selectedShip === s.id;
+        const st = calcTotalStats(s.id, null, save.selectedDiff);
+
+        const card = document.createElement('div');
+        card.className = `p-2.5 rounded-xl border flex flex-col justify-between transition-all cursor-pointer ${selected ? 'tab-active border-2' : 'bg-slate-900/90 border-slate-700'} ${restrictedInRush ? 'opacity-50' : ''}`;
+        card.innerHTML = `
+          <div>
+            <div class="flex justify-between items-center text-[10px] font-cyber mb-1">
+              <span class="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300">${s.tier}</span>
+              <span class="${!unlocked ? 'text-rose-400 font-bold' : restrictedInRush ? 'text-amber-400 font-bold' : 'text-emerald-300 font-bold'}">
+                ${!unlocked ? '🔒 SECRET' : restrictedInRush ? '⚠️ RUSH使用不可' : (selected ? '✔ SELECTED' : 'UNLOCKED')}
+              </span>
+            </div>
+            <div class="w-full h-16 bg-slate-950 rounded-lg flex items-center justify-center mb-1.5 border border-slate-800">
+              <canvas width="84" height="56" class="ship-preview-cv" data-ship="${s.id}" data-secret="${unlocked ? '0' : '1'}"></canvas>
+            </div>
+            <div class="font-bold text-xs sm:text-sm text-white truncate">${unlocked ? s.name : '🔒 ？？？'}</div>
+            <div class="text-[10px] font-mono text-cyan-300 mt-0.5">${unlocked ? `⚔️ATK:${st.atk} / 🔫${st.ways}WAY / ❤️HP:${st.maxHp}` : '⚔️ATK:??? / 🔫?WAY / ❤️HP:???'}</div>
+            <div class="text-[10px] text-amber-300 font-bold mt-1">${unlocked ? `★${s.skillName}` : '★固有能力: ？？？'}</div>
+            <div class="text-[10px] text-slate-300 leading-tight mt-0.5">${unlocked ? s.skillDesc : s.unlockText}</div>
+          </div>
+        `;
+        card.onclick = () => {
+          if (!unlocked) { showToast(`🔒 ${s.unlockText}`); return; }
+          if (restrictedInRush) {
+            showToast('⚔️ ボスラッシュでは標準機(TYPE-1)またはMYTHIC制覇特典の最強機(TYPE-3)のみ出撃可能です！');
+            return;
+          }
+          save.selectedShip = s.id;
+          saveGame();
+          renderBaseUI();
+        };
+        shipGrid.appendChild(card);
+      });
+
+      document.querySelectorAll('.ship-preview-cv').forEach(cv => {
+        const c = cv.getContext('2d');
+        const sId = cv.getAttribute('data-ship');
+        const sec = cv.getAttribute('data-secret') === '1';
+        drawShipCharacter(c, 42, 28, 16, sId, 0, sec, 0);
+      });
+
+      // 3) モジュールインベントリ描画
+      const invGrid = document.getElementById('moduleInventoryGrid');
+      invGrid.innerHTML = '';
+      GACHA_POOL.forEach(m => {
+        const count = save.inventory[m.id] || 0;
+        const isEq = (save.equipped || []).includes(m.id);
+        const div = document.createElement('div');
+        div.className = `p-2 rounded-xl border text-xs flex justify-between items-center cursor-pointer ${isEq ? 'bg-cyan-950/70 border-cyan-400' : count > 0 ? 'bg-slate-900 border-slate-700' : 'bg-slate-950/50 border-slate-800 opacity-45'}`;
+        div.innerHTML = `
+          <div>
+            <div class="font-bold text-white"><span class="text-amber-300 font-cyber">[${m.rarity}]</span> ${count > 0 ? m.name : '？？？'} ${count > 0 ? `<span class="text-emerald-300">+Lv.${count}</span>` : ''}</div>
+            <div class="text-[10px] text-slate-400">${count > 0 ? m.desc : (m.specialOnly ? 'BOSS RUSH完全制覇で授与' : 'ガチャで入手可能')}</div>
+          </div>
+          <span class="px-2 py-1 rounded text-[10px] font-bold ${isEq ? 'bg-cyan-400 text-slate-950' : 'bg-slate-800 text-slate-300'}">${isEq ? '装備中' : count > 0 ? '装備' : '未所持'}</span>
+        `;
+        div.onclick = () => {
+          if (count <= 0) return;
+          const idx = save.equipped.indexOf(m.id);
+          if (idx >= 0) save.equipped.splice(idx, 1);
+          else if (save.equipped.length < 3) save.equipped.push(m.id);
+          else { showToast('⚠️ 装備枠は最大3つまでです'); return; }
+          saveGame();
+          renderBaseUI();
+        };
+        invGrid.appendChild(div);
+      });
+
+      // 4) ショップ描画
+      const shopGrid = document.getElementById('shopGrid');
+      shopGrid.innerHTML = '';
+      SHOP_ITEMS.forEach(item => {
+        const lv = save.shop[item.id] || 0;
+        const cost = item.baseCost * (lv + 1);
+        const card = document.createElement('div');
+        card.className = 'p-2.5 rounded-xl bg-slate-900 border border-slate-700 flex justify-between items-center';
+        card.innerHTML = `
+          <div>
+            <div class="font-bold text-xs text-white">${item.name} <span class="text-cyan-300">Lv.${lv}/${item.maxLv}</span></div>
+            <div class="text-[10px] text-slate-400">${item.desc}</div>
+          </div>
+          <button type="button" class="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-black text-xs">${lv >= item.maxLv ? 'MAX' : `${cost}🪙`}</button>
+        `;
+        card.querySelector('button').onclick = () => {
+          if (lv >= item.maxLv) return;
+          if (save.coins < cost) { showToast('❌ コインが足りません'); return; }
+          save.coins -= cost;
+          save.shop[item.id] = lv + 1;
+          playSE('item');
+          saveGame('🛠️ 恒久強化完了！');
+          renderBaseUI();
+        };
+        shopGrid.appendChild(card);
+      });
+
+      // 5) ハイスコア＆ビジュアル図鑑（全22種：通常敵10＋ボス12）＆実績描画
+      const hsGrid = document.getElementById('highScoreBoardGrid');
+      hsGrid.innerHTML = '';
+      Object.values(DIFFICULTIES).forEach(d => {
+        const hs = save.highScores[d.id] || { score: 0, wave: 1 };
+        const cleared = d.id === 'MYTHIC' ? save.modeCleared.MYTHIC100 : save.modeCleared[d.id];
+        const box = document.createElement('div');
+        box.className = 'p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px]';
+        box.innerHTML = `
+          <div class="font-cyber font-bold" style="color:${d.color}">${d.name}</div>
+          <div class="font-mono text-white">到達 WAVE: <b class="text-cyan-300">${hs.wave}/${d.maxWave}</b></div>
+          <div class="font-mono text-amber-300 text-[10px]">SCORE: ${hs.score}</div>
+          <div class="text-[9px] ${cleared ? 'text-emerald-400 font-bold' : 'text-slate-500'}">${cleared ? '👑 完全制覇済' : '挑戦中'}</div>
+        `;
+        hsGrid.appendChild(box);
+      });
+
+      // 図鑑フィルターバー（新構成に合わせて整理）
+      const filterBar = document.getElementById('codexFilterBar');
+      filterBar.innerHTML = '';
+      [
+        { k: 'ALL', l: 'すべて(22)' },
+        { k: 'ENEMY', l: '通常エネミー(10)' },
+        { k: 'MAIN', l: 'NORMAL/HEARDボス(4)' },
+        { k: 'MYTHIC', l: 'MYTHIC固有＆隠しボス(3)' },
+        { k: 'BOSSRUSH', l: 'BOSS RUSH専用ボス(5)' }
+      ].forEach(f => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `px-2 py-0.5 rounded text-[10px] font-bold border ${currentCodexFilter === f.k ? 'bg-cyan-500 text-slate-950 border-cyan-300' : 'bg-slate-800 text-slate-300 border-slate-700'}`;
+        b.textContent = f.l;
+        b.onclick = () => { currentCodexFilter = f.k; renderBaseUI(); };
+        filterBar.appendChild(b);
+      });
+
+      // 図鑑グリッド
+      const codexGrid = document.getElementById('codexGrid');
+      codexGrid.innerHTML = '';
+      const allEntries = [
+        ...Object.values(ENEMY_TYPES).map(e => ({ ...e, isBoss: false, group: 'ENEMY' })),
+        ...Object.values(BOSS_CATALOG).map(b => ({ ...b, isBoss: true }))
+      ];
+      const unlockedCount = allEntries.filter(x => (save.codexKills[x.id] || 0) > 0).length;
+      document.getElementById('codexProgressBadge').textContent = `解放: ${unlockedCount} / ${allEntries.length}`;
+
+      allEntries
+        .filter(x => currentCodexFilter === 'ALL' || x.group === currentCodexFilter)
+        .forEach(entry => {
+          const kills = save.codexKills[entry.id] || 0;
+          const isSec = kills === 0;
+          const card = document.createElement('div');
+          card.className = 'p-2 rounded-xl bg-slate-900 border border-slate-800 flex flex-col items-center text-center';
+          card.innerHTML = `
+            <canvas width="72" height="60" class="codex-cv bg-slate-950 rounded-lg border border-slate-800 mb-1"></canvas>
+            <div class="text-[10px] font-bold text-white truncate w-full">${isSec ? '🔒 ？？？' : entry.name}</div>
+            <div class="text-[9px] text-cyan-300 font-mono">${entry.isBoss ? entry.waveLabel : '通常エネミー'} / 撃破:${kills}</div>
+            <div class="text-[9px] text-slate-400 mt-0.5 line-clamp-2">${isSec ? '戦場で撃破するとビジュアルと特殊能力データが解放されます' : entry.desc}</div>
+          `;
+          const c = card.querySelector('canvas').getContext('2d');
+          if (entry.isBoss) {
+            drawBossCharacter(c, { x: 36, y: 30, r: 20, arch: entry.arch, color: entry.color }, isSec, 0);
+          } else {
+            drawEnemyCharacter(c, { x: 36, y: 30, r: 16, type: entry.id, color: entry.color }, isSec, 0);
+          }
+          codexGrid.appendChild(card);
+        });
+
+      // 実績リスト
+      const achGrid = document.getElementById('achievementGrid');
+      achGrid.innerHTML = '';
+      ACHIEVEMENT_LIST.forEach(a => {
+        const done = !!save.achievements[a.id];
+        const d = document.createElement('div');
+        d.className = `p-2 rounded-lg border text-xs flex justify-between items-center ${done ? 'bg-emerald-950/40 border-emerald-500/60' : 'bg-slate-900 border-slate-800'}`;
+        d.innerHTML = `
+          <div>
+            <div class="font-bold ${done ? 'text-emerald-300' : 'text-white'}">${done ? '🏆' : '🔒'} ${a.name}</div>
+            <div class="text-[10px] text-slate-400">${a.desc}</div>
+          </div>
+          <span class="text-[10px] font-mono text-fuchsia-300 font-bold">+${a.gems}💎</span>
+        `;
+        achGrid.appendChild(d);
+      });
+    }
+
+    // ==================== 14. OP/ED ストーリームービー再生エンジン ====================
+    const movieState = {
+      active: false,
+      key: 'OP',
+      sceneIdx: 0,
+      tick: 0,
+      postActionType: null // null | 'FINAL_COMPLETE' | 'CONTINUE_CHOICE'
+    };
+
+    function isMovieUnlocked(key) {
+      if (key === 'OP') return true;
+      if (key === 'ED_NORMAL') return !!save.modeCleared.NORMAL;
+      if (key === 'ED_HEARD') return !!save.modeCleared.HEARD;
+      if (key === 'ED_MYTHIC25') return !!save.modeCleared.MYTHIC25;
+      if (key === 'ED_MYTHIC100') return !!save.modeCleared.MYTHIC100;
+      if (key === 'ED_BOSSRUSH') return !!save.modeCleared.BOSSRUSH;
+      return false;
+    }
+
+    function updateTheaterButtonsUI() {
+      const labels = {
+        OP: '🎬OP',
+        ED_NORMAL: 'NORMAL ED',
+        ED_HEARD: 'HEARD ED',
+        ED_MYTHIC25: 'MYTHIC W25',
+        ED_MYTHIC100: 'MYTHIC W100',
+        ED_BOSSRUSH: 'BOSS RUSH ED'
+      };
+      document.querySelectorAll('.theater-btn').forEach(btn => {
+        const mKey = btn.getAttribute('data-movie');
+        const unlocked = isMovieUnlocked(mKey);
+        const active = movieState.key === mKey;
+        btn.textContent = mKey === 'OP' ? labels[mKey] : (unlocked ? `👑${labels[mKey]}` : `🔒${labels[mKey]}`);
+        btn.className = `theater-btn px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+          active
+            ? 'bg-cyan-500 text-slate-950 border border-cyan-300'
+            : unlocked
+              ? 'bg-slate-800 text-slate-200 hover:text-white border border-slate-700'
+              : 'bg-slate-950 text-slate-500 border border-slate-800 opacity-60'
+        }`;
+      });
+    }
+
+    function openMovieModal(key = 'OP', postActionType = null, forceShow = true) {
+      if (key === 'OP' && save.hasSeenOp && !forceShow) return;
+      if (!postActionType && !isMovieUnlocked(key)) {
+        showToast('🔒 このムービーは該当モードをクリアすると解放されます！');
+        return;
+      }
+      movieState.active = true;
+      movieState.key = MOVIE_SCRIPTS[key] ? key : 'OP';
+      movieState.sceneIdx = 0;
+      movieState.tick = 0;
+      movieState.postActionType = postActionType;
+      if (postActionType) {
+        game.paused = true;
+        resetDragState();
+      }
+
+      updateTheaterButtonsUI();
+      document.getElementById('movieModal').classList.remove('hidden');
+      renderMovieSceneUI();
+    }
+
+    function renderMovieSceneUI() {
+      const script = MOVIE_SCRIPTS[movieState.key] || MOVIE_SCRIPTS.OP;
+      const scene = script.scenes[movieState.sceneIdx] || script.scenes[0];
+
+      updateTheaterButtonsUI();
+      document.getElementById('movieTypeBadge').textContent = script.badge;
+      document.getElementById('movieSceneIndicator').textContent = `SCENE ${movieState.sceneIdx + 1}/${script.scenes.length}`;
+      document.getElementById('movieSceneTitle').textContent = scene.title;
+      document.getElementById('movieSceneText').textContent = scene.text;
+
+      const rewardBanner = document.getElementById('movieUnlockRewardBanner');
+      if (script.rewardText) {
+        rewardBanner.textContent = script.rewardText;
+        rewardBanner.classList.remove('hidden');
+      } else {
+        rewardBanner.classList.add('hidden');
+      }
+
+      const dots = document.getElementById('movieSceneDots');
+      dots.innerHTML = '';
+      script.scenes.forEach((_, idx) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `px-2 py-0.5 rounded text-[10px] font-mono ${idx === movieState.sceneIdx ? 'bg-cyan-400 text-slate-950 font-bold' : 'bg-slate-800 text-slate-400'}`;
+        b.textContent = `${idx + 1}`;
+        b.onclick = () => { movieState.sceneIdx = idx; movieState.tick = 0; renderMovieSceneUI(); };
+        dots.appendChild(b);
+      });
+
+      const primaryBtn = document.getElementById('moviePrimaryActionBtn');
+      const secondaryBtn = document.getElementById('movieSecondaryActionBtn');
+
+      if (movieState.postActionType === 'CONTINUE_CHOICE') {
+        // MYTHIC WAVE 25 撃破時：ゲームを続けてW50/W100を目指すか、基地へ帰還するかの選択肢を表示
+        secondaryBtn.classList.remove('hidden');
+        secondaryBtn.textContent = '🏠 基地へ帰還する（W26セーブ済）';
+        primaryBtn.textContent = '🔥 ゲームを続ける（WAVE 26へ進撃！）';
+      } else if (movieState.postActionType === 'FINAL_COMPLETE') {
+        secondaryBtn.classList.add('hidden');
+        primaryBtn.textContent = '🏆 完全制覇！メイン基地へ凱旋する';
+      } else {
+        secondaryBtn.classList.add('hidden');
+        primaryBtn.textContent = '🚀 START GAME（基地画面へ）';
+      }
+    }
+
+    function updateAndDrawMovieCanvas() {
+      const modal = document.getElementById('movieModal');
+      if (modal.classList.contains('hidden')) return;
+
+      const mc = document.getElementById('movieCanvas');
+      const mctx = mc.getContext('2d');
+      movieState.tick++;
+
+      const script = MOVIE_SCRIPTS[movieState.key] || MOVIE_SCRIPTS.OP;
+      const sceneDuration = 260;
+      const pct = Math.min(100, (movieState.tick / sceneDuration) * 100);
+      document.getElementById('movieProgressBar').style.width = `${pct}%`;
+
+      if (movieState.tick >= sceneDuration) {
+        movieState.tick = 0;
+        movieState.sceneIdx = (movieState.sceneIdx + 1) % script.scenes.length;
+        renderMovieSceneUI();
+      }
+
+      mctx.fillStyle = '#020617';
+      mctx.fillRect(0, 0, mc.width, mc.height);
+      for (let i = 0; i < 30; i++) {
+        const sx = (i * 97 + movieState.tick * (1 + (i % 3))) % mc.width;
+        const sy = (i * 53) % mc.height;
+        mctx.fillStyle = i % 2 === 0 ? '#38bdf8' : '#e879f9';
+        mctx.fillRect(mc.width - sx, sy, 2, 2);
+      }
+
+      const t = movieState.tick;
+      if (movieState.key === 'OP') {
+        if (movieState.sceneIdx === 0) {
+          drawBossCharacter(mctx, { x: 520, y: 140, r: 48, arch: 'DEMON', color: '#ef4444' }, false, t);
+          drawShipCharacter(mctx, 180, 140, 22, 'A', 0, false, t);
+        } else if (movieState.sceneIdx === 1) {
+          const recoilX = 240 + Math.sin(t * 0.08) * 90;
+          mctx.strokeStyle = '#38bdf8'; mctx.lineWidth = 4;
+          mctx.beginPath(); mctx.moveTo(recoilX, 140); mctx.lineTo(660, 140); mctx.stroke();
+          drawShipCharacter(mctx, recoilX, 140, 26, 'A', 0, false, t);
+        } else if (movieState.sceneIdx === 2) {
+          ['DEMON', 'ARACHNE', 'LEVIATHAN', 'SERAPH', 'BR_OMEGA'].forEach((arch, idx) => {
+            drawBossCharacter(mctx, { x: 110 + idx * 125, y: 140, r: 30, arch, color: ['#ef4444', '#a855f7', '#06b6d4', '#f59e0b', '#f43f5e'][idx] }, false, t);
+          });
+        } else {
+          ['A', 'B', 'OMEGA'].forEach((sId, idx) => {
+            drawShipCharacter(mctx, 180 + idx * 180, 140, 26, sId, -Math.PI / 4, !save.unlockedShips[sId], t);
+          });
+        }
+      } else {
+        const shipMap = { ED_NORMAL: 'A', ED_HEARD: 'B', ED_MYTHIC25: 'B', ED_MYTHIC100: 'OMEGA', ED_BOSSRUSH: 'OMEGA' };
+        const heroShip = shipMap[movieState.key] || 'A';
+        drawShipCharacter(mctx, 240 + Math.sin(t * 0.05) * 30, 140, 32, heroShip, 0, false, t);
+        drawBossCharacter(mctx, { x: 520, y: 140, r: 44, arch: 'DESTROYER', color: '#f43f5e' }, false, t);
+      }
+    }
+
+    // ==================== 15. 秘密コード処理 ====================
+    function executeSecretCode(rawCode) {
+      const code = (rawCode || '').trim().toUpperCase();
+      if (code === 'TYPE3' || code === '3333' || code === 'OMEGA') {
+        save.modeCleared.MYTHIC100 = true;
+        save.unlockedShips.OMEGA = true;
+        save.selectedShip = 'OMEGA';
+        evaluateShipUnlocks();
+        saveGame('⚡ 最強の3機目『TYPE-3 創世神クロノス・セラフ』を解放＆選択しました！');
+        renderBaseUI();
+        document.getElementById('saveModalMsg').textContent = '⚡ 最強機『TYPE-3 クロノス・セラフ』が解放され、ボスラッシュを含む全モードで使用可能になりました！';
+      } else if (code === '7777') {
+        save.promoAllUnlocked = true;
+        save.modeCleared.NORMAL = true;
+        save.modeCleared.HEARD = true;
+        save.modeCleared.MYTHIC25 = true;
+        save.modeCleared.MYTHIC100 = true;
+        save.modeCleared.BOSSRUSH = true;
+        save.inventory.M_CHAMP = Math.max(1, save.inventory.M_CHAMP || 1);
+        save.gems += 200;
+        evaluateShipUnlocks();
+        saveGame('🌌 全3機体（TYPE-2 / TYPE-3）＆全ムービー＆ボスラッシュ4大特典を解放しました！');
+        renderBaseUI();
+        document.getElementById('saveModalMsg').textContent = '🌌 全3機体＆全ムービー＆ボスラッシュ特典解放完了！';
+      } else if (code === 'RUSH5') {
+        save.selectedDiff = 'BOSSRUSH';
+        save.savedRuns.BOSSRUSH = {
+          wave: 5,
+          score: 30000,
+          hp: 200,
+          shield: 80,
+          sp: 100,
+          runMods: {
+            atkMul: 0.6, wayAdd: 2, pierceAdd: 2, bounceAdd: 1, homingAdd: 2, vampAdd: 4, shockLv: 1, hpAdd: 40, cardsCount: 8,
+            cardCounts: { atkUp: 4, multi: 2, pierce: 2, bounce: 1, homing: 2, vamp: 2, shock: 1, shield: 2 }
+          }
+        };
+        saveGame('👑 [BOSS RUSH] 最終戦(WAVE 5)直行セーブを作成しました！');
+        renderBaseUI();
+        document.getElementById('saveModalMsg').textContent = '👑 [BOSS RUSH] WAVE 5 再開ボタンを押してください！';
+      } else if (code === '2525' || code === '5050' || code === '100') {
+        const targetWave = code === '2525' ? 25 : code === '5050' ? 50 : 100;
+        save.selectedDiff = 'MYTHIC';
+        save.savedRuns.MYTHIC = {
+          wave: targetWave,
+          score: targetWave * 5000,
+          hp: 999,
+          shield: 100,
+          sp: 100,
+          runMods: {
+            atkMul: 1.5, wayAdd: 4, pierceAdd: 4, bounceAdd: 3, homingAdd: 3, vampAdd: 6, shockLv: 3, hpAdd: 120, cardsCount: 30,
+            cardCounts: { atkUp: 10, multi: 4, pierce: 4, bounce: 3, homing: 3, vamp: 3, shock: 3, shield: 6 }
+          }
+        };
+        saveGame(`🎬 [MYTHIC] WAVE ${targetWave} ボス直行セーブを作成しました！`);
+        renderBaseUI();
+        document.getElementById('saveModalMsg').textContent = `🎬 [MYTHIC] WAVE ${targetWave} 再開ボタンを押してください！`;
+      } else {
+        document.getElementById('saveModalMsg').textContent = '❌ 無効なコードです (TYPE3 / 7777 / 2525 / 5050 / 100 / RUSH5)';
+      }
+    }
+
+    // ==================== 16. イベントバインディング＆メインループ起動 ====================
+    function setupEvents() {
+      let lastTouchTime = 0;
+
+      const getPos = (e, targetTouch = null) => {
+        const rect = canvas.getBoundingClientRect();
+        const t = targetTouch || (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+        if (t) {
+          return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+        }
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      };
+
+      const startDrag = e => {
+        const isTouch = e.type.startsWith('touch');
+        if (isTouch) {
+          lastTouchTime = Date.now();
+          // 既に1本目の指でエイム中の場合、2本目の指のタッチによるリセットを防止
+          if (game.drag.active && game.drag.touchId !== null) return;
+        } else if (Date.now() - lastTouchTime < 1500) {
+          // iPhone等でタッチ終了直後に自動発火する合成mousedownを完全に無視
+          return;
+        }
+        if (!game.running || game.paused || game.waveCleared) return;
+        if (e.cancelable) e.preventDefault();
+        ensureAudio();
+        const t = isTouch && e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
+        const pos = getPos(e, t);
+        game.drag.active = true;
+        game.drag.touchId = t ? t.identifier : null;
+        game.drag.sx = pos.x;
+        game.drag.sy = pos.y;
+        game.drag.cx = pos.x;
+        game.drag.cy = pos.y;
+        game.drag.charge = 0.12;
+        game.drag.holdTicks = 0;
+      };
+
+      const moveDrag = e => {
+        const isTouch = e.type.startsWith('touch');
+        if (isTouch) {
+          lastTouchTime = Date.now();
+          if (!game.drag.active) return;
+          if (!e.touches || e.touches.length === 0) {
+            endDrag(e);
+            return;
+          }
+          let matchedTouch = null;
+          if (game.drag.touchId !== null) {
+            for (let i = 0; i < e.touches.length; i++) {
+              if (e.touches[i].identifier === game.drag.touchId) {
+                matchedTouch = e.touches[i];
+                break;
+              }
+            }
+            if (!matchedTouch) {
+              endDrag(e);
+              return;
+            }
+          } else {
+            matchedTouch = e.touches[0];
+          }
+          if (e.cancelable) e.preventDefault();
+          const pos = getPos(e, matchedTouch);
+          game.drag.cx = pos.x;
+          game.drag.cy = pos.y;
+          return;
+        } else {
+          if (Date.now() - lastTouchTime < 1500) return;
+          if (e.buttons === 0 && game.drag.active) {
+            endDrag(e);
+            return;
+          }
+        }
+        if (!game.drag.active) return;
+        if (e.cancelable) e.preventDefault();
+        const pos = getPos(e);
+        game.drag.cx = pos.x;
+        game.drag.cy = pos.y;
+      };
+
+      const endDrag = e => {
+        const isTouch = e && e.type && e.type.startsWith('touch');
+        if (isTouch) {
+          lastTouchTime = Date.now();
+          // マルチタッチ時に別の指（2本目）が離れただけならエイムを維持する
+          if (game.drag.active && game.drag.touchId !== null && e.touches && e.touches.length > 0) {
+            for (let i = 0; i < e.touches.length; i++) {
+              if (e.touches[i].identifier === game.drag.touchId) {
+                return;
+              }
+            }
+          }
+        } else if (Date.now() - lastTouchTime < 1500) {
+          return;
+        }
+        if (!game.drag.active) return;
+        if (e && e.cancelable) e.preventDefault();
+        try {
+          if (game.running && !game.paused && !game.waveCleared) firePlayerShot();
+        } finally {
+          resetDragState();
+        }
+      };
+
+      canvas.addEventListener('touchstart', startDrag, { passive: false });
+      canvas.addEventListener('touchmove', moveDrag, { passive: false });
+      canvas.addEventListener('touchend', endDrag, { passive: false });
+      canvas.addEventListener('touchcancel', endDrag, { passive: false });
+      window.addEventListener('touchmove', moveDrag, { passive: false });
+      window.addEventListener('touchend', endDrag, { passive: false });
+      window.addEventListener('touchcancel', endDrag, { passive: false });
+
+      canvas.addEventListener('mousedown', startDrag);
+      window.addEventListener('mousemove', moveDrag);
+      window.addEventListener('mouseup', endDrag);
+      window.addEventListener('blur', resetDragState);
+
+      // PC向けキーボードショートカット（Space: OVERDRIVE必殺技 / CまたはShift: 急速冷却スキル）
+      window.addEventListener('keydown', e => {
+        if (!game.running || game.paused || game.waveCleared) return;
+        if (e.code === 'Space') {
+          e.preventDefault();
+          triggerOverdrive();
+        } else if (e.code === 'KeyC' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+          e.preventDefault();
+          document.getElementById('coolSkillBtn').click();
+        }
+      });
+
+      // タブ切替
+      const tabs = [
+        ['tabBtnSortie', 'tabPanelSortie'],
+        ['tabBtnGacha', 'tabPanelGacha'],
+        ['tabBtnShop', 'tabPanelShop'],
+        ['tabBtnRecords', 'tabPanelRecords']
+      ];
+      tabs.forEach(([bId, pId]) => {
+        document.getElementById(bId).onclick = () => {
+          tabs.forEach(([ob, op]) => {
+            document.getElementById(ob).classList.toggle('tab-active', ob === bId);
+            document.getElementById(op).classList.toggle('hidden', op !== pId);
+          });
+          renderBaseUI();
+        };
+      });
+
+      // 覇者オーラ切替
+      document.getElementById('champAuraToggleBtn').onclick = () => {
+        save.championAuraOn = !save.championAuraOn;
+        saveGame();
+        renderBaseUI();
+      };
+
+      // 出撃・再開・破棄
+      document.getElementById('startBtn').onclick = () => startOrResumeGame(false);
+      document.getElementById('continueBtn').onclick = () => startOrResumeGame(true);
+      document.getElementById('discardSaveRunBtn').onclick = () => {
+        save.savedRuns[save.selectedDiff] = null;
+        saveGame('🗑️ セーブスロットを破棄しました');
+        renderBaseUI();
+      };
+
+      // HUDボタン
+      document.getElementById('toggleStatsDetailBtn').onclick = () => {
+        const d = document.getElementById('hudStatsDrawer');
+        d.classList.toggle('hidden');
+        d.classList.toggle('flex');
+        updateHudUI();
+      };
+      document.getElementById('hudSaveBtn').onclick = () => {
+        if (!game.running) return;
+        const upgOpen = !document.getElementById('upgradeModal').classList.contains('hidden');
+        saveCurrentRunToSlot(upgOpen ? game.wave + 1 : game.wave);
+        saveGame(`💾 WAVE ${upgOpen ? game.wave + 1 : game.wave} 中断セーブ完了`);
+      };
+      document.getElementById('hudQuitBtn').onclick = () => {
+        const upgModal = document.getElementById('upgradeModal');
+        const upgOpen = !upgModal.classList.contains('hidden');
+        if (upgOpen) {
+          const firstBtn = document.querySelector('#upgradeCardsGrid button');
+          if (firstBtn) firstBtn.click();
+          upgModal.classList.add('hidden');
+        }
+        saveCurrentRunToSlot(game.wave);
+        saveGame(`💾 WAVE ${game.wave} 保存して基地へ帰還`);
+        game.running = false;
+        resetDragState();
+        document.getElementById('hudHeader').classList.add('hidden');
+        document.getElementById('bottomBar').classList.add('hidden');
+        document.getElementById('titleModal').classList.remove('hidden');
+        renderBaseUI();
+      };
+
+      const triggerOdHandler = e => {
+        if (e && e.type === 'touchstart' && e.cancelable) e.preventDefault();
+        triggerOverdrive();
+      };
+      document.getElementById('overdriveBtn').addEventListener('click', triggerOdHandler);
+      document.getElementById('overdriveBtn').addEventListener('touchstart', triggerOdHandler, { passive: false });
+
+      const triggerCoolHandler = e => {
+        if (e && e.type === 'touchstart' && e.cancelable) e.preventDefault();
+        if (!game.running || game.paused || game.player.coolSkillCd > 0) return;
+        game.player.heat = 0;
+        game.player.overheated = 0;
+        game.player.coolSkillCd = 480;
+        game.eBullets = [];
+        playSE('item');
+        addFloatingText(game.player.x, game.player.y - 25, '❄️COOLING & BULLET CLEAR!', '#38bdf8', 14);
+        updateHudUI();
+      };
+      document.getElementById('coolSkillBtn').addEventListener('click', triggerCoolHandler);
+      document.getElementById('coolSkillBtn').addEventListener('touchstart', triggerCoolHandler, { passive: false });
+
+      // 操作モード・BGM・SE切替
+      const toggleAim = () => {
+        save.aimMode = save.aimMode === 'sling' ? 'standard' : 'sling';
+        saveGame();
+        renderBaseUI();
+      };
+      document.getElementById('aimModeToggleBtn').onclick = toggleAim;
+      document.getElementById('hudAimModeBtn').onclick = toggleAim;
+
+      const toggleBgm = () => { save.bgmOn = !save.bgmOn; ensureAudio(); saveGame(); renderBaseUI(); };
+      const toggleSe = () => { save.seOn = !save.seOn; ensureAudio(); saveGame(); renderBaseUI(); };
+      document.getElementById('titleBgmBtn').onclick = toggleBgm;
+      document.getElementById('hudBgmBtn').onclick = toggleBgm;
+      document.getElementById('titleSeBtn').onclick = toggleSe;
+      document.getElementById('hudSeBtn').onclick = toggleSe;
+
+      // ガチャ＆自動編成
+      document.getElementById('gachaCoin1Btn').onclick = () => rollGacha(1, false);
+      document.getElementById('gachaCoin10Btn').onclick = () => rollGacha(10, false);
+      document.getElementById('gachaGem1Btn').onclick = () => rollGacha(1, true);
+      document.getElementById('gachaGem10Btn').onclick = () => rollGacha(10, true);
+      document.getElementById('closeGachaResultBtn').onclick = () => document.getElementById('gachaResultArea').classList.add('hidden');
+      document.getElementById('autoEquipBtn').onclick = () => {
+        const order = { LR: 6, UR: 5, SSR: 4, SR: 3, R: 2, N: 1 };
+        const owned = GACHA_POOL.filter(x => (save.inventory[x.id] || 0) > 0)
+          .sort((a, b) => (order[b.rarity] * 100 + (save.inventory[b.id] || 0)) - (order[a.rarity] * 100 + (save.inventory[a.id] || 0)));
+        save.equipped = owned.slice(0, 3).map(x => x.id);
+        saveGame('✨ 最強モジュールを自動編成しました');
+        renderBaseUI();
+      };
+
+      // ゲームオーバーボタン
+      document.getElementById('retrySavedWaveBtn').onclick = () => startOrResumeGame(true);
+      document.getElementById('backToBaseBtn').onclick = () => {
+        document.getElementById('gameOverModal').classList.add('hidden');
+        document.getElementById('hudHeader').classList.add('hidden');
+        document.getElementById('bottomBar').classList.add('hidden');
+        document.getElementById('titleModal').classList.remove('hidden');
+        renderBaseUI();
+      };
+
+      // セーブ＆秘密コードモーダル
+      const lockSecretCodePanel = () => {
+        document.getElementById('secretPasswordGate').classList.remove('hidden');
+        document.getElementById('secretCodeMainPanel').classList.add('hidden');
+        document.getElementById('secretGateInput').value = '';
+        document.getElementById('secretGateMsg').textContent = '';
+      };
+
+      const tryUnlockSecretCodePanel = () => {
+        const pw = (document.getElementById('secretGateInput').value || '').trim();
+        if (pw === '2929') {
+          document.getElementById('secretPasswordGate').classList.add('hidden');
+          document.getElementById('secretCodeMainPanel').classList.remove('hidden');
+          document.getElementById('secretGateMsg').textContent = '';
+          playSE('item');
+          showToast('🔓 秘密コード入力画面を解放しました');
+        } else {
+          document.getElementById('secretGateMsg').textContent = '❌ パスワードが違います';
+        }
+      };
+
+      document.getElementById('secretGateSubmitBtn').onclick = tryUnlockSecretCodePanel;
+      document.getElementById('secretGateInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          tryUnlockSecretCodePanel();
+        }
+      });
+      document.getElementById('relockSecretPanelBtn').onclick = lockSecretCodePanel;
+
+      document.getElementById('openSaveModalBtn').onclick = () => {
+        lockSecretCodePanel();
+        document.getElementById('saveCodeBox').value = JSON.stringify(save);
+        document.getElementById('saveModalMsg').textContent = '';
+        document.getElementById('saveModal').classList.remove('hidden');
+      };
+      document.getElementById('closeSaveModalBtn').onclick = () => document.getElementById('saveModal').classList.add('hidden');
+      document.getElementById('manualSaveBtn').onclick = () => {
+        saveGame('💾 手動セーブ完了');
+        document.getElementById('saveCodeBox').value = JSON.stringify(save);
+        document.getElementById('saveModalMsg').textContent = '💾 セーブ完了しました！';
+      };
+      document.getElementById('exportSaveBtn').onclick = () => {
+        const box = document.getElementById('saveCodeBox');
+        box.value = JSON.stringify(save);
+        box.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.getElementById('saveModalMsg').textContent = '📋 クリップボードにコピーしました！';
+      };
+      document.getElementById('importSaveBtn').onclick = () => {
+        try {
+          const parsed = JSON.parse(document.getElementById('saveCodeBox').value);
+          localStorage.setItem(SAVE_KEY, JSON.stringify(parsed));
+          loadSaveData();
+          renderBaseUI();
+          document.getElementById('saveModalMsg').textContent = '📥 セーブデータを復元しました！';
+        } catch (e) {
+          document.getElementById('saveModalMsg').textContent = '❌ JSON形式が正しくありません';
+        }
+      };
+      document.getElementById('resetSaveBtn').onclick = () => {
+        save = createDefaultSave();
+        saveGame('🗑️ 全データを初期化しました');
+        renderBaseUI();
+        document.getElementById('saveModalMsg').textContent = '🗑️ 初期化が完了しました';
+      };
+      document.getElementById('secretCodeSubmitBtn').onclick = () => executeSecretCode(document.getElementById('secretCodeInput').value);
+      document.getElementById('quickCodeType3Btn').onclick = () => executeSecretCode('TYPE3');
+      document.getElementById('quickCode2525Btn').onclick = () => executeSecretCode('2525');
+      document.getElementById('quickCode5050Btn').onclick = () => executeSecretCode('5050');
+      document.getElementById('quickCode100Btn').onclick = () => executeSecretCode('100');
+      document.getElementById('quickCode7777Btn').onclick = () => executeSecretCode('7777');
+      document.getElementById('quickCodeRushBtn').onclick = () => executeSecretCode('RUSH5');
+
+      // OP/EDムービーモーダル操作
+      document.getElementById('openTheaterBtn').onclick = () => openMovieModal('OP', null, true);
+      document.querySelectorAll('.theater-btn').forEach(btn => {
+        btn.onclick = () => openMovieModal(btn.getAttribute('data-movie'), null, true);
+      });
+      document.getElementById('movieNextSceneBtn').onclick = () => {
+        const script = MOVIE_SCRIPTS[movieState.key] || MOVIE_SCRIPTS.OP;
+        movieState.sceneIdx = (movieState.sceneIdx + 1) % script.scenes.length;
+        movieState.tick = 0;
+        renderMovieSceneUI();
+      };
+
+      // MYTHIC W25 で「基地へ帰還する」を選んだ場合
+      document.getElementById('movieSecondaryActionBtn').onclick = () => {
+        movieState.postActionType = null;
+        game.running = false;
+        game.paused = false;
+        document.getElementById('movieModal').classList.add('hidden');
+        document.getElementById('hudHeader').classList.add('hidden');
+        document.getElementById('bottomBar').classList.add('hidden');
+        document.getElementById('titleModal').classList.remove('hidden');
+        renderBaseUI();
+      };
+
+      // メインアクションボタン（ゲーム開始 / MYTHIC W26継続 / 完全クリア後に基地へ帰還）
+      document.getElementById('moviePrimaryActionBtn').onclick = () => {
+        ensureAudio();
+        save.hasSeenOp = true;
+        saveGame();
+        document.getElementById('movieModal').classList.add('hidden');
+
+        if (movieState.postActionType === 'CONTINUE_CHOICE') {
+          movieState.postActionType = null;
+          game.paused = false;
+          openWaveUpgradeModal();
+        } else if (movieState.postActionType === 'FINAL_COMPLETE') {
+          movieState.postActionType = null;
+          game.running = false;
+          game.paused = false;
+          document.getElementById('hudHeader').classList.add('hidden');
+          document.getElementById('bottomBar').classList.add('hidden');
+          document.getElementById('titleModal').classList.remove('hidden');
+          renderBaseUI();
+        } else {
+          renderBaseUI();
+        }
+      };
+    }
+
+    function mainLoop() {
+      requestAnimationFrame(mainLoop);
+      const movieOpen = !document.getElementById('movieModal').classList.contains('hidden');
+      const upgradeOpen = !document.getElementById('upgradeModal').classList.contains('hidden');
+      if (game.running && !game.paused && !movieOpen && !upgradeOpen) {
+        try {
+          updateGame();
+          renderGame();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+      updateAndDrawMovieCanvas();
+    }
+
+    function initApp() {
+      loadSaveData();
+      resizeCanvas();
+      setupEvents();
+      renderBaseUI();
+      openMovieModal('OP', null, false);
+      requestAnimationFrame(mainLoop);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp, { once: true });
+    } else {
+      initApp();
+    }
+  })();
+  </script>
+</body>
+</html>
